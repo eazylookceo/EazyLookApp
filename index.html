@@ -24,7 +24,7 @@ input,select,textarea{width:100%;padding:10px;border:1px solid #bbc;border-radiu
 .kv{display:grid;grid-template-columns:150px 1fr;gap:2px 8px;font-size:14px}.kv b{color:#667;font-weight:500}
 .why{font-size:12px;color:#a33}
 </style></head><body>
-<header><span>EazyLook</span><span id="who"></span></header>
+<header><span>EazyLook</span><span id="who" onclick="settings()" style="cursor:pointer"></span></header>
 <main id="app"></main>
 <div class="tabs" id="tabs" hidden></div>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -94,7 +94,7 @@ function can(o){ // что можно делать с заказом в его �
  return r}
 
 function render(){
- $('#who').textContent=ME||'';
+ $('#who').textContent=(ME?ME+' · ':'')+'⚙ Настройки';
  const t=$('#tabs');t.hidden=!tok;
  t.innerHTML=[['orders','Заказы'],['act','Действия'],['log','Журнал']].map(([k,n])=>`<button class="${S.tab==k?'on':''}" onclick="S.tab='${k}';render()">${n}</button>`).join('');
  const a=$('#app');
@@ -133,6 +133,9 @@ function openOrder(n){
  ${cm.map(e=>`<div class="it">${fdt(e['Дата'])} · ${esc(e['Кто'])}: ${esc(e['Описание'])}</div>`).join('')}</div>`;
  document.body.append(d)}
 async function addCm(n){const t=$('#cm').value.trim();if(!t)return;try{await addLog('Комментарий',n,t);$('#ord').remove();render();openOrder(n)}catch(e){alert('Не удалось сохранить: '+e.message)}}
+function settings(){if(!confirm('Сменить таблицу или имя? Вы выйдете из приложения и сможете ввести новые данные.'))return;
+ try{if(tok)google.accounts.oauth2.revoke(tok)}catch(e){}
+ tok=null;SID=ME=undefined;localStorage.removeItem('sid');localStorage.removeItem('me');S.orders=[];S.items=[];S.log=[];S.cfg=[];render()}
 function saveCfg(){const m=($('#sid').value||'').match(/\/d\/([\w-]+)/),id=m?m[1]:($('#sid').value||'').trim(),me=$('#me').value.trim();
  if(!id||!me)return alert('Заполните оба поля');SID=localStorage.sid=id;ME=localStorage.me=me;render()}
 async function start(){
