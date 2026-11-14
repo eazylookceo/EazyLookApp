@@ -30,6 +30,9 @@ input,select,textarea{width:100%;padding:12px 14px;border:1px solid var(--ln);bo
 .bdg{position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;border-radius:99px;padding:1px 9px;font-size:12px;font-weight:700}
 .sech{margin:18px 4px 4px;font-size:15px}.big{font-size:17px;font-weight:700;margin:6px 0 2px}.mu{color:var(--mu);font-size:13px}
 .toast{position:fixed;left:12px;right:12px;bottom:92px;max-width:480px;margin:auto;background:#161a2b;color:#fff;border-radius:16px;padding:12px 16px;z-index:30;box-shadow:var(--sh)}.toast button{float:right;border:0;background:#fff3;color:#fff;border-radius:10px;padding:4px 12px}
+.art{font-size:24px;font-weight:800;color:var(--ac)}.qty{font-size:20px;font-weight:800;background:color-mix(in srgb,var(--ac) 14%,transparent);padding:2px 12px;border-radius:12px}
+.cost{font-size:20px;font-weight:800}.cost small{font-size:12px;font-weight:500;color:var(--mu)}.cont{font-weight:700;margin-top:6px}
+.sum{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:0}.sum .mu{color:#ffffffcc}.sum .big{font-size:28px;margin:2px 0}
 </style></head><body>
 <header><span>EazyLook</span><span id="who" onclick="settings()" style="cursor:pointer"></span></header>
 <main id="app"></main>
@@ -114,7 +117,7 @@ function render(){
  if(!tok)return a.innerHTML=`<div class="card"><h3>Вход</h3><div class="hint">Нажмите кнопку и выберите рабочий аккаунт Google.</div>
   <button class="btn" onclick="start()">Войти через Google</button><div id="err"></div></div>`;
  if(S.tab=='orders')return a.innerHTML=ordersHtml();
- if(S.tab=='act')return a.innerHTML=S.sub=='buy'?buyHtml():actHtml();
+ if(S.tab=='act')return a.innerHTML=({buy:buyHtml,ship:shipHtml,adv:advHtml}[S.sub]||actHtml)();
  a.innerHTML=`<div class="hint">Журнал: что, когда и по какому заказу происходило.</div>`+S.log.slice(-100).reverse().map(e=>`<div class="card"><div class="row"><b>${esc(e['Тип'])}</b><span>${fdt(e['Дата'])}</span></div>${e['№ заказа']?'Заказ '+esc(e['№ заказа'])+' · ':''}${esc(e['Описание'])}${e['Сумма']?' · '+money(e['Сумма']):''}</div>`).join('')||'<div class="card">Пока пусто</div>'}
 function ordersHtml(){
  let L=S.orders.filter(o=>o['№']);const q=S.q.toLowerCase(),m=Date.now()-30*864e5;
@@ -125,7 +128,7 @@ function ordersHtml(){
  return `<div class="hint">Нажмите на заказ, чтобы открыть его и посмотреть, что с ним можно сделать.</div>
  <input placeholder="Поиск: номер, имя, телефон, ТТН, код" value="${esc(S.q)}" oninput="S.q=this.value;render();this.focus()">
  <div>${[['all','За всё время'],['mon','За месяц'],['act','Активные']].map(([k,n])=>`<button class="btn ${S.flt==k?'':'sec'}" onclick="S.flt='${k}';render()">${n}</button>`).join('')}</div>`+
- (L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></div>
+ `<div class="mu" style="margin:6px 4px">Заказов: ${L.length} · на сумму ${money(L.reduce((s,o)=>s+total(o),0))}</div>`+(L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></div>
  <div><span class="chip">${esc(o['Канал'])}</span><span class="chip">${esc(o['Тип оплаты']||'тип оплаты не указан')}</span></div>
  <div class="row"><span>${esc(o['ФИО'])}</span><b>${money(total(o))}</b></div>${itemsOf(o).map(i=>`<div class="it">${esc(i['Код'])} · ${esc(i['Размер'])} · ${esc(i['Цвет'])} × ${esc(i['Количество']||1)}${i['Название']?' · '+esc(i['Название']):''}</div>`).join('')}</div>`).join('')||'<div class="card">Заказов не найдено</div>')}
 function openOrder(n){
@@ -157,14 +160,42 @@ function showNews(n){const d=document.createElement('div');d.className='full';
 const IC={'Закупка товара':'🛒','Отправка заказов':'📦','Возврат посылок':'↩️','Возврат средств':'💸','Получение аванса':'💰','Выдача чеков':'🧾','Изменение баланса':'🏦','Возврат заказа':'🔁','Возврат комиссии':'🏷️','Сдача товара':'🏭'};
 const sup=c=>S.sup.find(s=>String(s['Наш номер'])==String(c).split('/')[0])||{};
 const toBuy=()=>S.items.map(i=>({i,o:S.orders.find(o=>o['№']==i['№ заказа'])})).filter(x=>x.o&&x.o['Статус']=='Новый'&&num(x.i['Закуплено шт'])<(num(x.i['Количество'])||1));
-function actHtml(){const cnt={'Закупка товара':toBuy().length,'Отправка заказов':S.orders.filter(o=>o['Статус']=='Закуплен').length};
- return `<div class="hint">Выберите, что хотите сделать. Цифра на плитке показывает, сколько дел ждёт вас.</div><div class="grid">`+ACTIONS.map(n=>{const on=n=='Закупка товара';return `<div class="tile ${on?'':'dim'}" onclick="${on?"S.sub='buy';render()":"toast('Появится в следующей версии')"}"><div class="ic">${IC[n]}</div><b>${n}</b>${cnt[n]?`<span class="bdg">${cnt[n]}</span>`:''}${on?'':'<small>скоро</small>'}</div>`}).join('')+`</div>`}
-function buyHtml(){const G={};toBuy().forEach(x=>{const s=sup(x.i['Код']),k=s['Улица']||'Улица не указана';(G[k]=G[k]||[]).push({...x,s})});
- return `<button class="btn sec" onclick="S.sub='';render()">← Все действия</button><div class="hint">Товары сгруппированы по улицам рынка. Купили — нажмите «Куплено». Ошиблись — в сообщении внизу есть «Отменить».</div>`+
- (Object.keys(G).sort().map(k=>`<h3 class="sech">📍 ${esc(k)}</h3>`+G[k].sort((a,b)=>num(a.s['Контейнер'])-num(b.s['Контейнер'])||String(a.i['Код']).localeCompare(b.i['Код'])).map(({i,o,s})=>{const q=(num(i['Количество'])||1)-num(i['Закуплено шт']);
-  return `<div class="card"><div class="row"><b>Контейнер ${esc(s['Контейнер']||'?')} · ${esc(s['Поставщик']||'поставщик не найден (№ '+String(i['Код']).split('/')[0]+')')}</b><span class="chip">${esc(i['Код'])}</span></div>
-  <div class="big">${esc(i['Название']||'')} ${esc(i['Цвет'])} · р. ${esc(i['Размер'])} · ${q} шт</div><div class="mu">Закупка ${money(i['Стоимость закупки'])} за шт · заказ ${esc(o['№'])} · ${esc(o['Канал'])} · ${esc(o['ФИО'])}</div>
-  <button class="btn" onclick="buy(${i._row},${q})">✓ Куплено</button><button class="btn sec" onclick="editItem(${i._row})">✎ Изменить</button></div>`}).join('')).join('')||'<div class="card">Всё закуплено 🎉</div>')}
+const cl=v=>String(v??'').replace(/\.0+$/,'');
+const CAR=['Нова Пошта','Meest','Розетка','Укрпошта'],SUB={'Закупка товара':'buy','Отправка заказов':'ship','Получение аванса':'adv'};
+const advL=()=>S.orders.filter(o=>num(o['Аванс'])>0&&o['Аванс получен']!='Да'&&!['Отменен','Закрыт'].includes(o['Статус']));
+const back=`<button class="btn sec" onclick="S.sub='';render()">← Все действия</button>`;
+const sumc=(a,b,c)=>`<div class="card sum"><div class="mu">${a}</div><div class="big">${b}</div><div class="mu">${c}</div></div>`;
+function actHtml(){const cnt={buy:toBuy().length,ship:S.orders.filter(o=>o['Статус']=='Закуплен').length,adv:advL().length};
+ return `<div class="hint">Выберите, что хотите сделать. Цифра на плитке показывает, сколько дел ждёт вас.</div><div class="grid">`+ACTIONS.map(n=>{const k=SUB[n];return `<div class="tile ${k?'':'dim'}" onclick="${k?`S.sub='${k}';render()`:"toast('Появится в следующей версии')"}"><div class="ic">${IC[n]}</div><b>${n}</b>${k&&cnt[k]?`<span class="bdg">${cnt[k]}</span>`:''}${k?'':'<small>скоро</small>'}</div>`}).join('')+`</div>`}
+function buyHtml(){const G={};let tq=0,tm=0,np=0;
+ toBuy().forEach(x=>{const s=sup(x.i['Код']),k=s['Улица']||'Улица не указана',q=(num(x.i['Количество'])||1)-num(x.i['Закуплено шт']);tq+=q;tm+=q*num(x.i['Стоимость закупки']);np++;(G[k]=G[k]||[]).push({...x,s,q})});
+ const ks=Object.keys(G).sort();
+ return back+sumc('Нужно купить',money(tm),`${tq} шт · ${np} позиций · улиц: ${ks.length}`)+
+ (ks.map(k=>{const a=G[k];return `<h3 class="sech">📍 ${esc(k)} <span class="mu">· ${a.reduce((n,x)=>n+x.q,0)} шт · ${money(a.reduce((n,x)=>n+x.q*num(x.i['Стоимость закупки']),0))}</span></h3>`+
+  a.sort((x,y)=>num(x.s['Контейнер'])-num(y.s['Контейнер'])||String(x.i['Код']).localeCompare(y.i['Код'])).map(({i,o,s,q})=>`<div class="card">
+  <div class="row"><span class="art">${esc(i['Код'])}</span><span class="qty">× ${q} шт</span></div>
+  <div class="big">${esc(i['Цвет'])} · р. ${esc(i['Размер'])}</div>
+  <div class="row"><span class="cost">${money(i['Стоимость закупки'])} <small>за шт</small></span><span class="mu">итого ${money(q*num(i['Стоимость закупки']))}</span></div>
+  <div class="cont">${esc(s['Поставщик']||'Поставщик не найден (№ '+String(i['Код']).split('/')[0]+')')} ${esc(cl(s['Контейнер']))}</div>${i['Название']?`<div class="mu">${esc(i['Название'])}</div>`:''}
+  <div class="mu">Заказ ${esc(o['№'])} · ${esc(o['Канал'])} · ${esc(o['ФИО'])}</div>
+  <button class="btn" onclick="buy(${i._row},${q})">✓ Куплено</button><button class="btn sec" onclick="editItem(${i._row})">✎ Изменить</button></div>`).join('')}).join('')||'<div class="card">Всё закуплено 🎉</div>')}
+function shipHtml(){const L=S.orders.filter(o=>o['Статус']=='Закуплен');
+ return back+sumc('К отправке',L.length+' заказов','на сумму '+money(L.reduce((s,o)=>s+total(o),0)))+`<div class="hint">Выберите службу доставки и впишите ТТН. Если доставку оплатили вы, впишите сумму.</div>`+
+ (L.map(o=>`<div class="card"><div class="row"><b>№ ${esc(o['№'])}</b><span class="chip">${esc(o['Канал'])}</span></div><div class="big">${esc(o['ФИО'])}</div>${itemsOf(o).map(i=>`<div class="it"><b>${esc(i['Код'])}</b> · ${esc(i['Цвет'])} · р. ${esc(i['Размер'])} × ${esc(i['Количество'])}${i['Название']?' · '+esc(i['Название']):''}</div>`).join('')}
+  <select id="c${o._row}">${CAR.map(c=>`<option ${o['Перевозчик']==c?'selected':''}>${c}</option>`).join('')}</select><input id="t${o._row}" placeholder="ТТН" value="${esc(o['ТТН'])}"><input id="d${o._row}" type="number" placeholder="Сколько заплатили вы за доставку (если платили)"><button class="btn" onclick="ship(${o._row})">📦 Отправлено</button></div>`).join('')||'<div class="card">Нет заказов к отправке</div>')}
+async function ship(row){const o=S.orders.find(x=>x._row==row),c=$('#c'+row).value,t=$('#t'+row).value.trim(),d=num($('#d'+row).value);
+ if(!t)return alert('Впишите ТТН');if(!confirm(`Отправили заказ ${o['№']} (${c}, ТТН ${t})?`))return;
+ const day=new Date().toISOString().slice(0,10),nd=num(o['Стоимость доставки'])+d,re=Math.round((num(o['Реал'])-d)*100)/100,sp='В пути или ждёт в отделении';
+ try{await g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[{range:`Заказы!G${row}:J${row}`,values:[[c,t,sp,day]]},{range:'Заказы!N'+row,values:[[nd||'']]},{range:`Заказы!X${row}:Y${row}`,values:[[re,'Отправлен']]}]})});
+  Object.assign(o,{'Перевозчик':c,'ТТН':t,'Состояние посылки':sp,'Дата отправки':day,'Стоимость доставки':nd||'','Реал':re,'Статус':'Отправлен'});
+  await addLog('Отправка',o['№'],`${c}, ТТН ${t}`);if(d)await addLog('Доставка',o['№'],'Оплачена вами при отправке',-d,'Банк');render();toast('Заказ отправлен')}catch(e){alert('Не удалось сохранить: '+e.message)}}
+function advHtml(){const L=advL();
+ return back+sumc('Ожидается аванс',money(L.reduce((s,o)=>s+num(o['Аванс']),0)),'по заказам: '+L.length)+`<div class="hint">Клиент заплатил аванс? Нажмите «Аванс получен». Сумму можно изменить, Выкуп пересчитается.</div>`+
+ (L.map(o=>`<div class="card"><div class="row"><b>№ ${esc(o['№'])}</b><span class="chip">${esc(o['Канал'])}</span></div><div class="big">${esc(o['ФИО'])}</div><div class="mu">Телефон ${esc(o['Телефон'])} · сумма заказа ${money(total(o))}</div><input id="a${o._row}" type="number" value="${num(o['Аванс'])}"><button class="btn" onclick="gotAdv(${o._row})">💰 Аванс получен</button></div>`).join('')||'<div class="card">Все авансы получены</div>')}
+async function gotAdv(row){const o=S.orders.find(x=>x._row==row),a=num($('#a'+row).value);if(!(a>0))return alert('Впишите сумму аванса');if(!confirm(`Получили аванс ${money(a)} по заказу ${o['№']}?`))return;
+ const vy=Math.max(total(o)-a,0),re=Math.round((num(o['Реал'])+a)*100)/100;
+ try{await g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[{range:`Заказы!Q${row}:S${row}`,values:[[a,'Да',vy]]},{range:'Заказы!X'+row,values:[[re]]}]})});
+  Object.assign(o,{'Аванс':a,'Аванс получен':'Да','Выкуп':vy,'Реал':re});await addLog('Аванс',o['№'],'Аванс получен',a,'Банк');render();toast('Аванс записан')}catch(e){alert('Не удалось сохранить: '+e.message)}}
 async function buy(row,q,undo){const i=S.items.find(x=>x._row==row),o=S.orders.find(x=>x['№']==i['№ заказа']),amt=q*num(i['Стоимость закупки']),nb=num(i['Закуплено шт'])+q;
  const all=itemsOf(o).every(x=>(x===i?nb:num(x['Закуплено шт']))>=(num(x['Количество'])||1)),stt=all?'Закуплен':(o['Статус']=='Закуплен'?'Новый':o['Статус']),re=Math.round((num(o['Реал'])-amt)*100)/100;
  try{await g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[{range:'Товары!I'+row,values:[[nb]]},{range:'Заказы!X'+o._row,values:[[re]]},{range:'Заказы!Y'+o._row,values:[[stt]]}]})});
