@@ -5,24 +5,31 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1f5fd6">
 <style>
-*{box-sizing:border-box}body{margin:0;font:16px/1.4 system-ui,Segoe UI,Roboto,sans-serif;background:#f3f5f9;color:#1b1f27;padding-bottom:70px}
-header{position:sticky;top:0;background:#1f5fd6;color:#fff;padding:10px 14px;font-weight:600;z-index:5;display:flex;justify-content:space-between}
-main{max-width:900px;margin:auto;padding:10px}
-.hint{background:#fff8dc;border:1px solid #ecd98a;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px}
-.card{background:#fff;border-radius:12px;padding:12px;margin:8px 0;box-shadow:0 1px 3px #0002}
+:root{--bg:#f4f5fb;--cd:#fff;--tx:#161a2b;--mu:#6b7191;--ac:#5b5bd6;--ac2:#8b5cf6;--ln:#e6e8f2;--sh:0 6px 18px #1b1f4a14}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1220;--cd:#181c30;--tx:#eceefb;--mu:#9aa1c4;--ln:#262b47;--sh:0 6px 18px #0007}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:96px}
+header{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-weight:800;font-size:19px;border-radius:0 0 24px 24px;box-shadow:var(--sh)}
+#who{font-size:13px;font-weight:600;background:#fff3;padding:6px 12px;border-radius:99px;cursor:pointer}
+main{max-width:860px;margin:auto;padding:12px}
+.card{background:var(--cd);border:1px solid var(--ln);border-radius:20px;padding:14px;margin:10px 0;box-shadow:var(--sh)}
 .row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
-.chip{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:#e8ecf4;margin-right:4px}
-.st{color:#fff;padding:2px 10px;border-radius:99px;font-size:13px}
-.it{font-size:14px;color:#444;border-top:1px dashed #ddd;padding:4px 0}
-button,input,select,textarea{font:inherit}
-.btn{border:0;border-radius:10px;padding:12px 16px;background:#1f5fd6;color:#fff;font-weight:600;cursor:pointer;margin:4px 4px 4px 0}
-.btn.off{background:#c9ced8;color:#555}.btn.sec{background:#e8ecf4;color:#1b1f27}
-input,select,textarea{width:100%;padding:10px;border:1px solid #bbc;border-radius:10px;margin:4px 0}
-.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid #ccd}
-.tabs button{flex:1;padding:14px 4px;border:0;background:none;font-weight:600;color:#667}.tabs .on{color:#1f5fd6;border-top:3px solid #1f5fd6}
-.full{position:fixed;inset:0;background:#f3f5f9;z-index:20;overflow:auto;padding:12px}
-.kv{display:grid;grid-template-columns:150px 1fr;gap:2px 8px;font-size:14px}.kv b{color:#667;font-weight:500}
-.why{font-size:12px;color:#a33}
+.hint{background:color-mix(in srgb,var(--ac) 12%,transparent);border-radius:14px;padding:10px 14px;margin:10px 0;font-size:13.5px}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);margin:4px 4px 0 0}
+.st{color:#fff;padding:3px 11px;border-radius:99px;font-size:12px;font-weight:700}
+.it{font-size:13.5px;color:var(--mu);padding:5px 0;border-top:1px solid var(--ln)}
+.btn{border:0;border-radius:14px;padding:12px 18px;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-weight:600;font-size:15px;font-family:inherit;cursor:pointer;margin:6px 6px 0 0}
+.btn.sec{background:var(--ln);color:var(--tx)}.btn.off{background:var(--ln);color:var(--mu);opacity:.7}
+input,select,textarea{width:100%;padding:12px 14px;border:1px solid var(--ln);border-radius:14px;margin:6px 0;background:var(--cd);color:var(--tx);font:inherit}
+.tabs{position:fixed;left:12px;right:12px;bottom:12px;display:flex;background:var(--cd);border:1px solid var(--ln);border-radius:24px;box-shadow:var(--sh);padding:6px;z-index:6;max-width:520px;margin:auto}
+.tabs button{flex:1;border:0;background:none;padding:8px 4px;border-radius:18px;color:var(--mu);font-weight:600;font-size:12px;font-family:inherit}.tabs i{display:block;font-style:normal;font-size:20px}.tabs .on{background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac)}
+.full{position:fixed;inset:0;background:var(--bg);z-index:20;overflow:auto;padding:14px}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 10px;font-size:14px}.kv b{color:var(--mu);font-weight:500}
+.why{font-size:12px;color:#d9485f;margin-bottom:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tile{position:relative;background:var(--cd);border:1px solid var(--ln);border-radius:20px;padding:16px 12px;box-shadow:var(--sh);cursor:pointer}.tile.dim{opacity:.55}.tile .ic{font-size:28px}.tile small{display:block;color:var(--mu)}
+.bdg{position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;border-radius:99px;padding:1px 9px;font-size:12px;font-weight:700}
+.sech{margin:18px 4px 4px;font-size:15px}.big{font-size:17px;font-weight:700;margin:6px 0 2px}.mu{color:var(--mu);font-size:13px}
+.toast{position:fixed;left:12px;right:12px;bottom:92px;max-width:480px;margin:auto;background:#161a2b;color:#fff;border-radius:16px;padding:12px 16px;z-index:30;box-shadow:var(--sh)}.toast button{float:right;border:0;background:#fff3;color:#fff;border-radius:10px;padding:4px 12px}
 </style></head><body>
 <header><span>EazyLook</span><span id="who" onclick="settings()" style="cursor:pointer"></span></header>
 <main id="app"></main>
@@ -46,7 +53,7 @@ const num=v=>parseFloat(String(v??'').replace(',','.').replace(/\s/g,''))||0;
 const money=v=>num(v).toLocaleString('ru-RU',{maximumFractionDigits:2})+' ₴';
 const fdate=v=>{const d=new Date(v);return isNaN(d)?esc(v):d.toLocaleDateString('ru-RU')};
 const fdt=v=>{const d=new Date(v);return isNaN(d)?'':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
-let tok=null,tc=null,SID=localStorage.sid,ME=localStorage.me,S={orders:[],items:[],log:[],cfg:[],tab:'orders',flt:'all',q:''};
+let tok=null,tc=null,SID=localStorage.sid,ME=localStorage.me,S={orders:[],items:[],log:[],cfg:[],sup:[],sub:'',tab:'orders',flt:'all',q:''};
 
 function auth(){return new Promise((ok,no)=>{
  if(!tc)tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,callback:r=>r.access_token?(tok=r.access_token,ok()):no(new Error(r.error||'auth'))});
@@ -65,7 +72,7 @@ async function ensure(){
 async function load(){
  const ks=Object.keys(SH),d=await g('/values:batchGet?'+ks.map(k=>'ranges='+encodeURIComponent(k)).join('&')),T={};
  d.valueRanges.forEach((v,i)=>{const r=v.values||[],h=r[0]||SH[ks[i]];T[ks[i]]=r.slice(1).map((row,j)=>{const o={_row:j+2};h.forEach((k,c)=>o[k]=row[c]??'');return o})});
- S.orders=T['Заказы'];S.items=T['Товары'];S.log=T['Журнал'];S.cfg=T['Настройки']}
+ S.orders=T['Заказы'];S.items=T['Товары'];S.log=T['Журнал'];S.cfg=T['Настройки'];S.sup=T['Поставщики']}
 async function addLog(type,order,desc,amount='',acct=''){
  const row=[Date.now(),new Date().toISOString(),ME,type,order,acct,amount,'',desc,''];
  await app('Журнал!A1',[row]);
@@ -96,7 +103,7 @@ function can(o){ // что можно делать с заказом в его �
 function render(){
  $('#who').textContent=(ME?ME+' · ':'')+'⚙ Настройки';
  const t=$('#tabs');t.hidden=!tok;
- t.innerHTML=[['orders','Заказы'],['act','Действия'],['log','Журнал']].map(([k,n])=>`<button class="${S.tab==k?'on':''}" onclick="S.tab='${k}';render()">${n}</button>`).join('');
+ t.innerHTML=[['orders','🧾','Заказы'],['act','⚡','Действия'],['log','🕘','Журнал']].map(([k,ic,n])=>`<button class="${S.tab==k?'on':''}" onclick="S.tab='${k}';S.sub='';render()"><i>${ic}</i>${n}</button>`).join('');
  const a=$('#app');
  if(!SID||!ME)return a.innerHTML=`<div class="card"><h3>Первая настройка</h3>
   <div class="hint">Откройте вашу Google Таблицу и скопируйте адрес из строки браузера целиком, вставьте сюда.</div>
@@ -107,7 +114,7 @@ function render(){
  if(!tok)return a.innerHTML=`<div class="card"><h3>Вход</h3><div class="hint">Нажмите кнопку и выберите рабочий аккаунт Google.</div>
   <button class="btn" onclick="start()">Войти через Google</button><div id="err"></div></div>`;
  if(S.tab=='orders')return a.innerHTML=ordersHtml();
- if(S.tab=='act')return a.innerHTML=`<div class="hint">Здесь будут все рабочие действия: выберите, что хотите сделать. Раздел появится в следующей версии.</div>`+ACTIONS.map(n=>`<div class="card">${n}<div class="why">Скоро</div></div>`).join('');
+ if(S.tab=='act')return a.innerHTML=S.sub=='buy'?buyHtml():actHtml();
  a.innerHTML=`<div class="hint">Журнал: что, когда и по какому заказу происходило.</div>`+S.log.slice(-100).reverse().map(e=>`<div class="card"><div class="row"><b>${esc(e['Тип'])}</b><span>${fdt(e['Дата'])}</span></div>${e['№ заказа']?'Заказ '+esc(e['№ заказа'])+' · ':''}${esc(e['Описание'])}${e['Сумма']?' · '+money(e['Сумма']):''}</div>`).join('')||'<div class="card">Пока пусто</div>'}
 function ordersHtml(){
  let L=S.orders.filter(o=>o['№']);const q=S.q.toLowerCase(),m=Date.now()-30*864e5;
@@ -118,7 +125,7 @@ function ordersHtml(){
  return `<div class="hint">Нажмите на заказ, чтобы открыть его и посмотреть, что с ним можно сделать.</div>
  <input placeholder="Поиск: номер, имя, телефон, ТТН, код" value="${esc(S.q)}" oninput="S.q=this.value;render();this.focus()">
  <div>${[['all','За всё время'],['mon','За месяц'],['act','Активные']].map(([k,n])=>`<button class="btn ${S.flt==k?'':'sec'}" onclick="S.flt='${k}';render()">${n}</button>`).join('')}</div>`+
- (L.map(o=>`<div class="card" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></div>
+ (L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></div>
  <div><span class="chip">${esc(o['Канал'])}</span><span class="chip">${esc(o['Тип оплаты']||'тип оплаты не указан')}</span></div>
  <div class="row"><span>${esc(o['ФИО'])}</span><b>${money(total(o))}</b></div>${itemsOf(o).map(i=>`<div class="it">${esc(i['Код'])} · ${esc(i['Размер'])} · ${esc(i['Цвет'])} × ${esc(i['Количество']||1)}${i['Название']?' · '+esc(i['Название']):''}</div>`).join('')}</div>`).join('')||'<div class="card">Заказов не найдено</div>')}
 function openOrder(n){
@@ -147,5 +154,31 @@ function showNews(n){const d=document.createElement('div');d.className='full';
  d.innerHTML=`<h2>Что нового, пока вас не было</h2><div class="hint">Это изменения других людей с вашего прошлого визита.</div>`+
  n.slice(0,200).map(e=>`<div class="card"><div class="row"><b>${esc(e['Тип'])}</b><span>${fdt(e['Дата'])} · ${esc(e['Кто'])}</span></div>${e['№ заказа']?'Заказ '+esc(e['№ заказа'])+' · ':''}${esc(e['Описание'])}</div>`).join('')+
  `<button class="btn" onclick="this.parentNode.remove();setSeen()">Понятно, продолжить</button>`;document.body.append(d)}
+const IC={'Закупка товара':'🛒','Отправка заказов':'📦','Возврат посылок':'↩️','Возврат средств':'💸','Получение аванса':'💰','Выдача чеков':'🧾','Изменение баланса':'🏦','Возврат заказа':'🔁','Возврат комиссии':'🏷️','Сдача товара':'🏭'};
+const sup=c=>S.sup.find(s=>String(s['Наш номер'])==String(c).split('/')[0])||{};
+const toBuy=()=>S.items.map(i=>({i,o:S.orders.find(o=>o['№']==i['№ заказа'])})).filter(x=>x.o&&x.o['Статус']=='Новый'&&num(x.i['Закуплено шт'])<(num(x.i['Количество'])||1));
+function actHtml(){const cnt={'Закупка товара':toBuy().length,'Отправка заказов':S.orders.filter(o=>o['Статус']=='Закуплен').length};
+ return `<div class="hint">Выберите, что хотите сделать. Цифра на плитке показывает, сколько дел ждёт вас.</div><div class="grid">`+ACTIONS.map(n=>{const on=n=='Закупка товара';return `<div class="tile ${on?'':'dim'}" onclick="${on?"S.sub='buy';render()":"toast('Появится в следующей версии')"}"><div class="ic">${IC[n]}</div><b>${n}</b>${cnt[n]?`<span class="bdg">${cnt[n]}</span>`:''}${on?'':'<small>скоро</small>'}</div>`}).join('')+`</div>`}
+function buyHtml(){const G={};toBuy().forEach(x=>{const s=sup(x.i['Код']),k=s['Улица']||'Улица не указана';(G[k]=G[k]||[]).push({...x,s})});
+ return `<button class="btn sec" onclick="S.sub='';render()">← Все действия</button><div class="hint">Товары сгруппированы по улицам рынка. Купили — нажмите «Куплено». Ошиблись — в сообщении внизу есть «Отменить».</div>`+
+ (Object.keys(G).sort().map(k=>`<h3 class="sech">📍 ${esc(k)}</h3>`+G[k].sort((a,b)=>num(a.s['Контейнер'])-num(b.s['Контейнер'])||String(a.i['Код']).localeCompare(b.i['Код'])).map(({i,o,s})=>{const q=(num(i['Количество'])||1)-num(i['Закуплено шт']);
+  return `<div class="card"><div class="row"><b>Контейнер ${esc(s['Контейнер']||'?')} · ${esc(s['Поставщик']||'поставщик не найден (№ '+String(i['Код']).split('/')[0]+')')}</b><span class="chip">${esc(i['Код'])}</span></div>
+  <div class="big">${esc(i['Название']||'')} ${esc(i['Цвет'])} · р. ${esc(i['Размер'])} · ${q} шт</div><div class="mu">Закупка ${money(i['Стоимость закупки'])} за шт · заказ ${esc(o['№'])} · ${esc(o['Канал'])} · ${esc(o['ФИО'])}</div>
+  <button class="btn" onclick="buy(${i._row},${q})">✓ Куплено</button><button class="btn sec" onclick="editItem(${i._row})">✎ Изменить</button></div>`}).join('')).join('')||'<div class="card">Всё закуплено 🎉</div>')}
+async function buy(row,q,undo){const i=S.items.find(x=>x._row==row),o=S.orders.find(x=>x['№']==i['№ заказа']),amt=q*num(i['Стоимость закупки']),nb=num(i['Закуплено шт'])+q;
+ const all=itemsOf(o).every(x=>(x===i?nb:num(x['Закуплено шт']))>=(num(x['Количество'])||1)),stt=all?'Закуплен':(o['Статус']=='Закуплен'?'Новый':o['Статус']),re=Math.round((num(o['Реал'])-amt)*100)/100;
+ try{await g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[{range:'Товары!I'+row,values:[[nb]]},{range:'Заказы!X'+o._row,values:[[re]]},{range:'Заказы!Y'+o._row,values:[[stt]]}]})});
+  i['Закуплено шт']=nb;o['Реал']=re;o['Статус']=stt;
+  await addLog('Закупка',o['№'],(undo?'Отмена закупки: ':'Куплено: ')+`${Math.abs(q)} шт · ${i['Код']} · ${i['Цвет']} · р. ${i['Размер']}`,-amt,'Банк');
+  render();toast(undo?'Закупка отменена':'Отмечено: куплено',undo?undefined:()=>buy(row,-q,true))}catch(e){alert('Не удалось сохранить: '+e.message)}}
+const EK=['Название','Код','Размер','Цвет','Количество','Цена за шт','Стоимость закупки'];
+function editItem(row){const i=S.items.find(x=>x._row==row),d=document.createElement('div');d.className='full';d.id='ed';
+ d.innerHTML=`<button class="btn sec" onclick="this.parentNode.remove()">← Назад</button><h2>Изменить товар</h2><div class="hint">Если меняете модель, укажите новую цену и закупку.</div><div class="card">`+EK.map((k,n)=>`<label class="mu">${k}</label><input id="f${n}" value="${esc(i[k])}">`).join('')+`<button class="btn" onclick="saveItem(${row})">Сохранить</button></div>`;document.body.append(d)}
+async function saveItem(row){const i=S.items.find(x=>x._row==row),r=EK.map((k,n)=>document.getElementById('f'+n).value.trim()),was=EK.map(k=>String(i[k]));
+ if(r[1]!=was[1]&&r[5]==was[5]&&r[6]==was[6]&&!confirm('Вы изменили модель, но цена и закупка прежние. Оставить так?'))return;
+ const v=r.map((x,n)=>n>3?num(x):x);if(!v[4])v[4]=1;
+ try{await put('Товары!B'+row+':H'+row,[v]);EK.forEach((k,n)=>i[k]=v[n]);
+  await addLog('Изменение заказа',i['№ заказа'],'Товар изменён: '+EK.map((k,n)=>was[n]!=String(v[n])?`${k}: ${was[n]} → ${v[n]}`:'').filter(Boolean).join('; '));$('#ed').remove();render();toast('Сохранено')}catch(e){alert('Не удалось сохранить: '+e.message)}}
+function toast(t,undo){const d=document.createElement('div');d.className='toast';d.innerHTML=esc(t)+(undo?' <button onclick="this.parentNode.remove();window._u()">Отменить</button>':'');if(undo)window._u=undo;document.body.append(d);setTimeout(()=>d.remove(),7000)}
 window.addEventListener('load',()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');render()});
 </script></body></html>
