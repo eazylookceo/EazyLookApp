@@ -34,6 +34,7 @@ input,select,textarea{width:100%;padding:12px 14px;border:1px solid var(--ln);bo
 .cost{font-size:20px;font-weight:800}.cost small{font-size:12px;font-weight:500;color:var(--mu)}.cont{font-weight:700;margin-top:6px}
 .sum{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:0}.sum .mu{color:#ffffffcc}.sum .big{font-size:28px;margin:2px 0}
 .btn.sm{padding:7px 14px;font-size:13px;border-radius:99px}
+.rc{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;margin-right:6px}.rc.ok{background:#dcfce7;color:#15803d}.rc.no{background:var(--ln);color:var(--mu)}.rc.no.due{background:#fee2e2;color:#b91c1c}
 </style></head><body>
 <header><span>EazyLook</span><span id="who" onclick="settings()" style="cursor:pointer"></span></header>
 <main id="app"></main>
@@ -41,7 +42,8 @@ input,select,textarea{width:100%;padding:12px 14px;border:1px solid var(--ln);bo
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 const CLIENT_ID='453855640121-0o20r40ti8vjgtpkmkdhdomdrhttmo1i.apps.googleusercontent.com';
-const SCOPE='https://www.googleapis.com/auth/spreadsheets';
+const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
+let ares=null;
 const SH={
 'Заказы':['№','Канал','Тип оплаты','Дата','ФИО','Телефон','Перевозчик','ТТН','Состояние посылки','Дата отправки','Дата получения','От ФОП','Условие доставки','Стоимость доставки','Возвратная ТТН','Стоимость возвратной доставки','Аванс','Аванс получен','Выкуп','Комиссия сайта','Комиссия банка','Выплата','Профит','Реал','Статус','Чек выдан'],
 'Товары':['№ заказа','Название','Код','Размер','Цвет','Количество','Цена за шт','Стоимость закупки','Закуплено шт'],
@@ -59,12 +61,15 @@ const fdate=v=>{const d=new Date(v);return isNaN(d)?esc(v):d.toLocaleDateString(
 const fdt=v=>{const d=new Date(v);return isNaN(d)?'':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
 let tok=null,tc=null,SID=localStorage.sid,ME=localStorage.me,S={orders:[],items:[],log:[],cfg:[],sup:[],sub:'',ch:'',tab:'orders',flt:'all',q:''};
 
-function auth(){return new Promise((ok,no)=>{
- if(!tc)tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,callback:r=>r.access_token?(tok=r.access_token,ok()):no(new Error(r.error||'auth'))});
- tc.requestAccessToken({prompt:''});});}
-async function g(p,o={}){
+function auth(){return new Promise((ok,no)=>{ares={ok,no};
+ if(!tc)tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,
+  callback:r=>{if(r.access_token){tok=r.access_token;localStorage.tk=JSON.stringify({tok,exp:Date.now()+(r.expires_in-120)*1000});
+   if(!localStorage.em)fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+tok}}).then(x=>x.json()).then(j=>{if(j.email)localStorage.em=j.email}).catch(()=>{});ares.ok()}else ares.no(new Error(r.error||'auth'))},
+  error_callback:e=>ares.no(new Error(e.type||'popup'))});
+ tc.requestAccessToken({prompt:'',hint:localStorage.em||undefined})});}
+async function g(p,o={},retry=1){
  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+SID+p,{...o,headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'}});
- if(r.status==401){tok=null;throw new Error('auth')}
+ if(r.status==401){tok=null;localStorage.removeItem('tk');if(retry){await auth();return g(p,o,0)}throw new Error('auth')}
  const j=await r.json();if(!r.ok)throw new Error(j.error?.message||'Ошибка Google');return j}
 const put=(t,v)=>g('/values/'+encodeURIComponent(t)+'?valueInputOption=RAW',{method:'PUT',body:JSON.stringify({values:v})});
 const app=(t,v)=>g('/values/'+encodeURIComponent(t)+':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',body:JSON.stringify({values:v})});
@@ -103,8 +108,10 @@ async function act({data,upd,logs,msg}){
   old.forEach(([o,n])=>Object.assign(o,n));
   for(const e of es){if(e['Тип']=='Комментарий'){await put('Журнал!J'+e._row,[['Да']]);e['Отменена']='Да'}else await addLog('Отмена',e['№ заказа'],'Отмена: '+e['Описание'],e['Сумма']===''?'':-num(e['Сумма']),e['Счёт'])}
   render();const on=es[0]&&es[0]['№ заказа'];if($('#ord')&&on){$('#ord').remove();openOrder(on)}toast('Действие отменено')}catch(x){alert('Не удалось отменить: '+x.message)}})}
-const chkL=()=>S.orders.filter(o=>o['Канал']=='Наложка'&&o['От ФОП']=='Да'&&o['Статус']=='Выполнен'&&o['Чек выдан']!='Да');
-function chkHtml(){const L=chkL();return back+sumc('Нужно выдать чеки',L.length+' заказов','на сумму '+money(L.reduce((s,o)=>s+total(o),0)))+`<div class="hint">Выдали чек ПРРО по заказу? Нажмите «Чек выдан».</div>`+
+const needR=o=>o['Канал']=='Шафа'||o['Канал']=='Эпицентр'||(o['Канал']=='Наложка'&&o['От ФОП']=='Да');
+const rcp=o=>needR(o)?(o['Чек выдан']=='Да'?'<span class="rc ok" title="Чек выдан">🧾 ✓</span>':`<span class="rc no${o['Статус']=='Выполнен'?' due':''}" title="Чек не выдан">🧾 ✗</span>`):'';
+const chkL=()=>S.orders.filter(o=>needR(o)&&o['Статус']=='Выполнен'&&o['Чек выдан']!='Да');
+function chkHtml(){const L=chkL();return back+sumc('Нужно выдать чеки',L.length+' заказов','на сумму '+money(L.reduce((s,o)=>s+total(o),0)))+`<div class="hint">Чеки нужны по Наложке (от ФОП), Шафе и Эпицентру. По Прому чек выдаётся автоматически или создаётся на Проме. Выдали чек? Нажмите «Чек выдан».</div>`+
  (L.map(o=>`<div class="card"><div class="row"><b>№ ${esc(o['№'])}</b><span class="chip">${esc(o['Канал'])}</span></div><div class="big">${esc(o['ФИО'])}</div><div class="mu">Сумма ${money(total(o))} · ТТН ${esc(o['ТТН'])}</div><button class="btn" onclick="chk(${o._row})">🧾 Чек выдан</button></div>`).join('')||'<div class="card">Все чеки выданы 🎉</div>')}
 async function chk(row){const o=S.orders.find(x=>x._row==row),v={'Чек выдан':'Да'};try{await act({data:wr(o,v),upd:[[o,v]],logs:[['Чек',o['№'],'Чек выдан']],msg:'Чек отмечен: заказ '+o['№']})}catch(e){alert('Не удалось сохранить: '+e.message)}}
 const seenKey=()=>'seen:'+ME,seenRow=()=>S.cfg.find(r=>r['Ключ']==seenKey());
@@ -142,7 +149,7 @@ function render(){
   <input id="me" placeholder="Ваше имя" value="${esc(ME||'')}">
   <button class="btn" onclick="saveCfg()">Сохранить</button></div>`;
  if(!tok)return a.innerHTML=`<div class="card"><h3>Вход</h3><div class="hint">Нажмите кнопку и выберите рабочий аккаунт Google.</div>
-  <button class="btn" onclick="start()">Войти через Google</button><div id="err"></div></div>`;
+  <button class="btn" onclick="start()">${localStorage.em?'Продолжить как '+esc(localStorage.em):'Войти через Google'}</button><div id="err"></div></div>`;
  if(S.tab=='orders')return a.innerHTML=ordersHtml();
  if(S.tab=='act')return a.innerHTML=({buy:buyHtml,ship:shipHtml,adv:advHtml,chk:chkHtml}[S.sub]||actHtml)();
  a.innerHTML=`<div class="hint">Журнал: что, когда и по какому заказу происходило.</div>`+S.log.slice(-100).reverse().map(e=>`<div class="card"><div class="row"><b>${esc(e['Тип'])}</b><span>${fdt(e['Дата'])}</span></div>${e['№ заказа']?'Заказ '+esc(e['№ заказа'])+' · ':''}${esc(e['Описание'])}${e['Сумма']?' · '+money(e['Сумма']):''}</div>`).join('')||'<div class="card">Пока пусто</div>'}
@@ -155,7 +162,7 @@ function ordersHtml(){
  return `<div class="hint">Нажмите на заказ, чтобы открыть его и посмотреть, что с ним можно сделать.</div>
  <input placeholder="Поиск: номер, имя, телефон, ТТН, код" value="${esc(S.q)}" oninput="S.q=this.value;render();this.focus()">
  <div>${[['all','За всё время'],['mon','За месяц'],['act','Активные']].map(([k,n])=>`<button class="btn ${S.flt==k?'':'sec'}" onclick="S.flt='${k}';render()">${n}</button>`).join('')}</div>`+
- `<div>${['','Пром','Эпицентр','Шафа','Наложка'].map(c=>`<button class="btn sm ${S.ch==c?'':'sec'}" onclick="S.ch='${c}';render()">${c||'Все каналы'}</button>`).join('')}</div><div class="mu" style="margin:6px 4px">Заказов: ${L.length} · на сумму ${money(L.reduce((s,o)=>s+total(o),0))}</div>`+(L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></div>
+ `<div>${['','Пром','Эпицентр','Шафа','Наложка'].map(c=>`<button class="btn sm ${S.ch==c?'':'sec'}" onclick="S.ch='${c}';render()">${c||'Все каналы'}</button>`).join('')}</div><div class="mu" style="margin:6px 4px">Заказов: ${L.length} · на сумму ${money(L.reduce((s,o)=>s+total(o),0))}</div>`+(L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span>${rcp(o)}<span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></span></div>
  <div><span class="chip">${esc(o['Канал'])}</span><span class="chip">${esc(o['Тип оплаты']||'тип оплаты не указан')}</span></div>
  <div class="row"><span>${esc(o['ФИО'])}</span><b>${money(total(o))}</b></div>${itemsOf(o).map(i=>`<div class="it">${esc(i['Код'])} · ${esc(i['Размер'])} · ${esc(i['Цвет'])} × ${esc(i['Количество']||1)}${i['Название']?' · '+esc(i['Название']):''}</div>`).join('')}</div>`).join('')||'<div class="card">Заказов не найдено</div>')}
 function openOrder(n){
@@ -172,11 +179,11 @@ function openOrder(n){
 async function addCm(n){const t=$('#cm').value.trim();if(!t)return;try{await act({data:[],upd:[],logs:[['Комментарий',n,t]],msg:'Комментарий добавлен'});$('#ord').remove();openOrder(n)}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function settings(){if(!confirm('Сменить таблицу или имя? Вы выйдете из приложения и сможете ввести новые данные.'))return;
  try{if(tok)google.accounts.oauth2.revoke(tok)}catch(e){}
- tok=null;SID=ME=undefined;localStorage.removeItem('sid');localStorage.removeItem('me');S.orders=[];S.items=[];S.log=[];S.cfg=[];render()}
+ tok=null;SID=ME=undefined;localStorage.removeItem('sid');localStorage.removeItem('me');localStorage.removeItem('tk');localStorage.removeItem('em');S.orders=[];S.items=[];S.log=[];S.cfg=[];render()}
 function saveCfg(){const m=($('#sid').value||'').match(/\/d\/([\w-]+)/),id=m?m[1]:($('#sid').value||'').trim(),me=$('#me').value.trim();
  if(!id||!me)return alert('Заполните оба поля');SID=localStorage.sid=id;ME=localStorage.me=me;render()}
 async function start(){
- try{await auth();$('#app').innerHTML='<div class="card">Загружаю данные…</div>';await ensure();await load();
+ try{if(!tok)await auth();$('#app').innerHTML='<div class="card">Загружаю данные…</div>';await ensure();await load();
   const r=seenRow(),n=news();render();
   if(!r){await setSeen()}else if(n.length)showNews(n);else await setSeen()}
  catch(e){tok=null;render();$('#err').innerHTML=`<div class="hint">Не получилось: ${esc(e.message)}. Проверьте адрес таблицы и доступ аккаунта.</div>`}}
@@ -236,5 +243,8 @@ async function saveItem(row){const i=S.items.find(x=>x._row==row),o=S.orders.fin
  const vo=calc(o,itemsOf(o).map(x=>x===i?{...i,...nv}:x));
  try{await act({data:wi(i,nv).concat(wr(o,vo)),upd:[[i,nv],[o,vo]],logs:[['Изменение заказа',o['№'],'Товар изменён: '+ch.map(k=>`${k}: ${i[k]} → ${nv[k]}`).join('; ')]],msg:'Товар изменён'});$('#ed').remove()}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function toast(t,undo){document.querySelectorAll('.toast').forEach(x=>x.remove());const d=document.createElement('div');d.className='toast';d.innerHTML=esc(t)+(undo?' <button>Отменить</button>':'');if(undo)d.querySelector('button').onclick=()=>{d.remove();undo()};document.body.append(d);setTimeout(()=>d.remove(),8000)}
-window.addEventListener('load',()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');render()});
+window.addEventListener('load',()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');render();
+ const t=JSON.parse(localStorage.tk||'null');
+ if(SID&&ME&&t&&t.exp>Date.now()){tok=t.tok;start()}
+ else if(SID&&ME&&localStorage.em){const w=setInterval(async()=>{if(window.google&&google.accounts){clearInterval(w);try{await auth();start()}catch(e){render()}}},200)}});
 </script></body></html>
