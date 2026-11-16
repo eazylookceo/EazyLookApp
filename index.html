@@ -33,6 +33,7 @@ input,select,textarea{width:100%;padding:12px 14px;border:1px solid var(--ln);bo
 .art{font-size:24px;font-weight:800;color:var(--ac)}.qty{font-size:20px;font-weight:800;background:color-mix(in srgb,var(--ac) 14%,transparent);padding:2px 12px;border-radius:12px}
 .cost{font-size:20px;font-weight:800}.cost small{font-size:12px;font-weight:500;color:var(--mu)}.cont{font-weight:700;margin-top:6px}
 .sum{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border:0}.sum .mu{color:#ffffffcc}.sum .big{font-size:28px;margin:2px 0}
+.btn.sm{padding:7px 14px;font-size:13px;border-radius:99px}
 </style></head><body>
 <header><span>EazyLook</span><span id="who" onclick="settings()" style="cursor:pointer"></span></header>
 <main id="app"></main>
@@ -56,7 +57,7 @@ const num=v=>parseFloat(String(v??'').replace(',','.').replace(/\s/g,''))||0;
 const money=v=>num(v).toLocaleString('ru-RU',{maximumFractionDigits:2})+' ₴';
 const fdate=v=>{const d=new Date(v);return isNaN(d)?esc(v):d.toLocaleDateString('ru-RU')};
 const fdt=v=>{const d=new Date(v);return isNaN(d)?'':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
-let tok=null,tc=null,SID=localStorage.sid,ME=localStorage.me,S={orders:[],items:[],log:[],cfg:[],sup:[],sub:'',tab:'orders',flt:'all',q:''};
+let tok=null,tc=null,SID=localStorage.sid,ME=localStorage.me,S={orders:[],items:[],log:[],cfg:[],sup:[],sub:'',ch:'',tab:'orders',flt:'all',q:''};
 
 function auth(){return new Promise((ok,no)=>{
  if(!tc)tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,callback:r=>r.access_token?(tok=r.access_token,ok()):no(new Error(r.error||'auth'))});
@@ -76,10 +77,36 @@ async function load(){
  const ks=Object.keys(SH),d=await g('/values:batchGet?'+ks.map(k=>'ranges='+encodeURIComponent(k)).join('&')),T={};
  d.valueRanges.forEach((v,i)=>{const r=v.values||[],h=r[0]||SH[ks[i]];T[ks[i]]=r.slice(1).map((row,j)=>{const o={_row:j+2};h.forEach((k,c)=>o[k]=row[c]??'');return o})});
  S.orders=T['Заказы'];S.items=T['Товары'];S.log=T['Журнал'];S.cfg=T['Настройки'];S.sup=T['Поставщики']}
+const rnd=x=>Math.round(x*100)/100,colL=n=>String.fromCharCode(65+n);
+const wr=(o,v)=>Object.entries(v).map(([k,x])=>({r:'Заказы!'+colL(SH['Заказы'].indexOf(k))+o._row,v:x,p:o[k]}));
+const wi=(i,v)=>Object.entries(v).map(([k,x])=>({r:'Товары!'+colL(SH['Товары'].indexOf(k))+i._row,v:x,p:i[k]}));
+function calc(o,its=itemsOf(o)){
+ const ln=i=>num(i['Цена за шт'])*(num(i['Количество'])||1),lc=i=>num(i['Стоимость закупки'])*(num(i['Количество'])||1),sum=its.reduce((s,i)=>s+ln(i),0),buy=its.reduce((s,i)=>s+lc(i),0),os=itemsOf(o).reduce((s,i)=>s+ln(i),0);
+ const ch=o['Канал'],ty=o['Тип оплаты']||'',pre=/Пром-оплата|частинами|Безопасная|Monobank/i.test(ty),vy=pre?sum:Math.max(sum-num(o['Аванс']),0),old=num(o['Комиссия сайта']);let site=old,bank=num(o['Комиссия банка']);
+ if(ch=='Шафа')site=its.reduce((s,i)=>{const l=ln(i);return s+Math.min(Math.max(l*(l<=500?.2:l<=1000?.17:.13),30),500)},0);
+ else if(ch=='Эпицентр'||ch=='Пром')site=old>0&&os>0?old/os*sum:(ch=='Эпицентр'?sum*.14:old);
+ if(ch=='Наложка'||ch=='Пром'||ty){if(pre)bank=sum*({'Шафа':.015,'Пром':.017,'Эпицентр':.013}[ch]||0);else if(ch=='Эпицентр')bank=0;else if(ch=='Наложка')bank=o['От ФОП']=='Да'?vy*.005:0;else bank=vy*.005}
+ return {'Выкуп':rnd(vy),'Комиссия сайта':rnd(site),'Комиссия банка':rnd(bank),'Выплата':rnd(vy-bank),'Профит':rnd(sum-site-bank-num(o['Стоимость доставки'])-buy)}}
 async function addLog(type,order,desc,amount='',acct=''){
- const row=[Date.now(),new Date().toISOString(),ME,type,order,acct,amount,'',desc,''];
- await app('Журнал!A1',[row]);
- S.log.push({ID:row[0],'Дата':row[1],'Кто':ME,'Тип':type,'№ заказа':order,'Описание':desc,'Сумма':amount,'Счёт':acct})}
+ const row=[Date.now()+Math.floor(Math.random()*1e3),new Date().toISOString(),ME,type,order,acct,amount,'',desc,''];
+ const r=await app('Журнал!A1',[row]),m=String(r.updates?.updatedRange||'').match(/(\d+):/);
+ const e={ID:row[0],'Дата':row[1],'Кто':ME,'Тип':type,'№ заказа':order,'Описание':desc,'Сумма':amount,'Счёт':acct,'Отменена':'',_row:m?+m[1]:0};S.log.push(e);return e}
+const bu=d=>g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:d})});
+async function act({data,upd,logs,msg}){
+ const old=upd.map(([o,n])=>[o,Object.fromEntries(Object.keys(n).map(k=>[k,o[k]]))]);
+ if(data.length)await bu(data.map(d=>({range:d.r,values:[[d.v]]})));
+ upd.forEach(([o,n])=>Object.assign(o,n));
+ const es=[];for(const l of logs)es.push(await addLog(...l));
+ render();
+ toast(msg,async()=>{try{
+  if(data.length)await bu(data.map(d=>({range:d.r,values:[[d.p]]})));
+  old.forEach(([o,n])=>Object.assign(o,n));
+  for(const e of es){if(e['Тип']=='Комментарий'){await put('Журнал!J'+e._row,[['Да']]);e['Отменена']='Да'}else await addLog('Отмена',e['№ заказа'],'Отмена: '+e['Описание'],e['Сумма']===''?'':-num(e['Сумма']),e['Счёт'])}
+  render();const on=es[0]&&es[0]['№ заказа'];if($('#ord')&&on){$('#ord').remove();openOrder(on)}toast('Действие отменено')}catch(x){alert('Не удалось отменить: '+x.message)}})}
+const chkL=()=>S.orders.filter(o=>o['Канал']=='Наложка'&&o['От ФОП']=='Да'&&o['Статус']=='Выполнен'&&o['Чек выдан']!='Да');
+function chkHtml(){const L=chkL();return back+sumc('Нужно выдать чеки',L.length+' заказов','на сумму '+money(L.reduce((s,o)=>s+total(o),0)))+`<div class="hint">Выдали чек ПРРО по заказу? Нажмите «Чек выдан».</div>`+
+ (L.map(o=>`<div class="card"><div class="row"><b>№ ${esc(o['№'])}</b><span class="chip">${esc(o['Канал'])}</span></div><div class="big">${esc(o['ФИО'])}</div><div class="mu">Сумма ${money(total(o))} · ТТН ${esc(o['ТТН'])}</div><button class="btn" onclick="chk(${o._row})">🧾 Чек выдан</button></div>`).join('')||'<div class="card">Все чеки выданы 🎉</div>')}
+async function chk(row){const o=S.orders.find(x=>x._row==row),v={'Чек выдан':'Да'};try{await act({data:wr(o,v),upd:[[o,v]],logs:[['Чек',o['№'],'Чек выдан']],msg:'Чек отмечен: заказ '+o['№']})}catch(e){alert('Не удалось сохранить: '+e.message)}}
 const seenKey=()=>'seen:'+ME,seenRow=()=>S.cfg.find(r=>r['Ключ']==seenKey());
 async function setSeen(){const now=new Date().toISOString(),r=seenRow();
  if(r){await put('Настройки!B'+r._row,[[now]]);r['Значение']=now}else{await app('Настройки!A1',[[seenKey(),now]]);S.cfg.push({'Ключ':seenKey(),'Значение':now,_row:S.cfg.length+2})}}
@@ -117,24 +144,24 @@ function render(){
  if(!tok)return a.innerHTML=`<div class="card"><h3>Вход</h3><div class="hint">Нажмите кнопку и выберите рабочий аккаунт Google.</div>
   <button class="btn" onclick="start()">Войти через Google</button><div id="err"></div></div>`;
  if(S.tab=='orders')return a.innerHTML=ordersHtml();
- if(S.tab=='act')return a.innerHTML=({buy:buyHtml,ship:shipHtml,adv:advHtml}[S.sub]||actHtml)();
+ if(S.tab=='act')return a.innerHTML=({buy:buyHtml,ship:shipHtml,adv:advHtml,chk:chkHtml}[S.sub]||actHtml)();
  a.innerHTML=`<div class="hint">Журнал: что, когда и по какому заказу происходило.</div>`+S.log.slice(-100).reverse().map(e=>`<div class="card"><div class="row"><b>${esc(e['Тип'])}</b><span>${fdt(e['Дата'])}</span></div>${e['№ заказа']?'Заказ '+esc(e['№ заказа'])+' · ':''}${esc(e['Описание'])}${e['Сумма']?' · '+money(e['Сумма']):''}</div>`).join('')||'<div class="card">Пока пусто</div>'}
 function ordersHtml(){
  let L=S.orders.filter(o=>o['№']);const q=S.q.toLowerCase(),m=Date.now()-30*864e5;
- if(S.flt=='act')L=L.filter(o=>ACTIVE.includes(o['Статус']));
+ if(S.ch)L=L.filter(o=>o['Канал']==S.ch);if(S.flt=='act')L=L.filter(o=>ACTIVE.includes(o['Статус']));
  if(S.flt=='mon')L=L.filter(o=>Date.parse(o['Дата'])>=m);
  if(q)L=L.filter(o=>(o['№']+o['ФИО']+o['Телефон']+o['ТТН']+itemsOf(o).map(i=>i['Код']+i['Название']).join(' ')).toLowerCase().includes(q));
  L.sort((a,b)=>(Date.parse(b['Дата'])||0)-(Date.parse(a['Дата'])||0)||b._row-a._row);
  return `<div class="hint">Нажмите на заказ, чтобы открыть его и посмотреть, что с ним можно сделать.</div>
  <input placeholder="Поиск: номер, имя, телефон, ТТН, код" value="${esc(S.q)}" oninput="S.q=this.value;render();this.focus()">
  <div>${[['all','За всё время'],['mon','За месяц'],['act','Активные']].map(([k,n])=>`<button class="btn ${S.flt==k?'':'sec'}" onclick="S.flt='${k}';render()">${n}</button>`).join('')}</div>`+
- `<div class="mu" style="margin:6px 4px">Заказов: ${L.length} · на сумму ${money(L.reduce((s,o)=>s+total(o),0))}</div>`+(L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></div>
+ `<div>${['','Пром','Эпицентр','Шафа','Наложка'].map(c=>`<button class="btn sm ${S.ch==c?'':'sec'}" onclick="S.ch='${c}';render()">${c||'Все каналы'}</button>`).join('')}</div><div class="mu" style="margin:6px 4px">Заказов: ${L.length} · на сумму ${money(L.reduce((s,o)=>s+total(o),0))}</div>`+(L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></div>
  <div><span class="chip">${esc(o['Канал'])}</span><span class="chip">${esc(o['Тип оплаты']||'тип оплаты не указан')}</span></div>
  <div class="row"><span>${esc(o['ФИО'])}</span><b>${money(total(o))}</b></div>${itemsOf(o).map(i=>`<div class="it">${esc(i['Код'])} · ${esc(i['Размер'])} · ${esc(i['Цвет'])} × ${esc(i['Количество']||1)}${i['Название']?' · '+esc(i['Название']):''}</div>`).join('')}</div>`).join('')||'<div class="card">Заказов не найдено</div>')}
 function openOrder(n){
  const o=S.orders.find(x=>x['№']==n);if(!o)return;const d=document.createElement('div');d.className='full';d.id='ord';
  const F=['Канал','Тип оплаты','Дата','ФИО','Телефон','Перевозчик','ТТН','Состояние посылки','Условие доставки','Стоимость доставки','Аванс','Аванс получен','Выкуп','Комиссия сайта','Комиссия банка','Выплата','Профит','Реал','Чек выдан'];
- const cm=S.log.filter(e=>e['Тип']=='Комментарий'&&e['№ заказа']==n).reverse();
+ const cm=S.log.filter(e=>e['Тип']=='Комментарий'&&e['№ заказа']==n&&e['Отменена']!='Да').reverse();
  d.innerHTML=`<button class="btn sec" onclick="this.parentNode.remove()">← Назад к заказам</button><h2>Заказ № ${esc(n)} <span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус'])}</span></h2>
  <div class="card kv">${F.filter(k=>o[k]!=='').map(k=>`<b>${k}</b><span>${k=='Дата'?fdate(o[k]):esc(o[k])}${k=='Телефон'?` <a href="#" onclick="navigator.clipboard.writeText('${esc(o[k])}');return false">копировать</a>`:''}</span>`).join('')}</div>
  <div class="card"><b>Товары</b>${itemsOf(o).map(i=>`<div class="it">${esc(i['Название'])} ${esc(i['Код'])} · ${esc(i['Размер'])} · ${esc(i['Цвет'])} × ${esc(i['Количество'])} · ${money(i['Цена за шт'])} · куплено ${esc(i['Закуплено шт']||0)}</div>`).join('')||'Товаров нет'}</div>
@@ -142,7 +169,7 @@ function openOrder(n){
  <div class="card"><b>Комментарии</b><textarea id="cm" rows="2" placeholder="Напишите комментарий к заказу"></textarea><button class="btn" onclick="addCm('${esc(n)}')">Добавить комментарий</button>
  ${cm.map(e=>`<div class="it">${fdt(e['Дата'])} · ${esc(e['Кто'])}: ${esc(e['Описание'])}</div>`).join('')}</div>`;
  document.body.append(d)}
-async function addCm(n){const t=$('#cm').value.trim();if(!t)return;try{await addLog('Комментарий',n,t);$('#ord').remove();render();openOrder(n)}catch(e){alert('Не удалось сохранить: '+e.message)}}
+async function addCm(n){const t=$('#cm').value.trim();if(!t)return;try{await act({data:[],upd:[],logs:[['Комментарий',n,t]],msg:'Комментарий добавлен'});$('#ord').remove();openOrder(n)}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function settings(){if(!confirm('Сменить таблицу или имя? Вы выйдете из приложения и сможете ввести новые данные.'))return;
  try{if(tok)google.accounts.oauth2.revoke(tok)}catch(e){}
  tok=null;SID=ME=undefined;localStorage.removeItem('sid');localStorage.removeItem('me');S.orders=[];S.items=[];S.log=[];S.cfg=[];render()}
@@ -161,11 +188,11 @@ const IC={'Закупка товара':'🛒','Отправка заказов'
 const sup=c=>S.sup.find(s=>String(s['Наш номер'])==String(c).split('/')[0])||{};
 const toBuy=()=>S.items.map(i=>({i,o:S.orders.find(o=>o['№']==i['№ заказа'])})).filter(x=>x.o&&x.o['Статус']=='Новый'&&num(x.i['Закуплено шт'])<(num(x.i['Количество'])||1));
 const cl=v=>String(v??'').replace(/\.0+$/,'');
-const CAR=['Нова Пошта','Meest','Розетка','Укрпошта'],SUB={'Закупка товара':'buy','Отправка заказов':'ship','Получение аванса':'adv'};
+const CAR=['Нова Пошта','Meest','Розетка','Укрпошта'],SUB={'Закупка товара':'buy','Отправка заказов':'ship','Получение аванса':'adv','Выдача чеков':'chk'};
 const advL=()=>S.orders.filter(o=>num(o['Аванс'])>0&&o['Аванс получен']!='Да'&&!['Отменен','Закрыт'].includes(o['Статус']));
 const back=`<button class="btn sec" onclick="S.sub='';render()">← Все действия</button>`;
 const sumc=(a,b,c)=>`<div class="card sum"><div class="mu">${a}</div><div class="big">${b}</div><div class="mu">${c}</div></div>`;
-function actHtml(){const cnt={buy:toBuy().length,ship:S.orders.filter(o=>o['Статус']=='Закуплен').length,adv:advL().length};
+function actHtml(){const cnt={buy:toBuy().length,ship:S.orders.filter(o=>o['Статус']=='Закуплен').length,adv:advL().length,chk:chkL().length};
  return `<div class="hint">Выберите, что хотите сделать. Цифра на плитке показывает, сколько дел ждёт вас.</div><div class="grid">`+ACTIONS.map(n=>{const k=SUB[n];return `<div class="tile ${k?'':'dim'}" onclick="${k?`S.sub='${k}';render()`:"toast('Появится в следующей версии')"}"><div class="ic">${IC[n]}</div><b>${n}</b>${k&&cnt[k]?`<span class="bdg">${cnt[k]}</span>`:''}${k?'':'<small>скоро</small>'}</div>`}).join('')+`</div>`}
 function buyHtml(){const G={};let tq=0,tm=0,np=0;
  toBuy().forEach(x=>{const s=sup(x.i['Код']),k=s['Улица']||'Улица не указана',q=(num(x.i['Количество'])||1)-num(x.i['Закуплено шт']);tq+=q;tm+=q*num(x.i['Стоимость закупки']);np++;(G[k]=G[k]||[]).push({...x,s,q})});
@@ -184,18 +211,16 @@ function shipHtml(){const L=S.orders.filter(o=>o['Статус']=='Закупл�
  (L.map(o=>`<div class="card"><div class="row"><b>№ ${esc(o['№'])}</b><span class="chip">${esc(o['Канал'])}</span></div><div class="big">${esc(o['ФИО'])}</div>${itemsOf(o).map(i=>`<div class="it"><b>${esc(i['Код'])}</b> · ${esc(i['Цвет'])} · р. ${esc(i['Размер'])} × ${esc(i['Количество'])}${i['Название']?' · '+esc(i['Название']):''}</div>`).join('')}
   <select id="c${o._row}">${CAR.map(c=>`<option ${o['Перевозчик']==c?'selected':''}>${c}</option>`).join('')}</select><input id="t${o._row}" placeholder="ТТН" value="${esc(o['ТТН'])}"><input id="d${o._row}" type="number" placeholder="Сколько заплатили вы за доставку (если платили)"><button class="btn" onclick="ship(${o._row})">📦 Отправлено</button></div>`).join('')||'<div class="card">Нет заказов к отправке</div>')}
 async function ship(row){const o=S.orders.find(x=>x._row==row),c=$('#c'+row).value,t=$('#t'+row).value.trim(),d=num($('#d'+row).value);
- if(!t)return alert('Впишите ТТН');if(!confirm(`Отправили заказ ${o['№']} (${c}, ТТН ${t})?`))return;
- const day=new Date().toISOString().slice(0,10),nd=num(o['Стоимость доставки'])+d,re=Math.round((num(o['Реал'])-d)*100)/100,sp='В пути или ждёт в отделении';
- try{await g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[{range:`Заказы!G${row}:J${row}`,values:[[c,t,sp,day]]},{range:'Заказы!N'+row,values:[[nd||'']]},{range:`Заказы!X${row}:Y${row}`,values:[[re,'Отправлен']]}]})});
-  Object.assign(o,{'Перевозчик':c,'ТТН':t,'Состояние посылки':sp,'Дата отправки':day,'Стоимость доставки':nd||'','Реал':re,'Статус':'Отправлен'});
-  await addLog('Отправка',o['№'],`${c}, ТТН ${t}`);if(d)await addLog('Доставка',o['№'],'Оплачена вами при отправке',-d,'Банк');render();toast('Заказ отправлен')}catch(e){alert('Не удалось сохранить: '+e.message)}}
+ if(!t)return alert('Впишите ТТН');
+ const nd=num(o['Стоимость доставки'])+d,v={'Перевозчик':c,'ТТН':t,'Состояние посылки':'В пути или ждёт в отделении','Дата отправки':new Date().toISOString().slice(0,10),'Стоимость доставки':nd||'','Реал':rnd(num(o['Реал'])-d),'Статус':'Отправлен'};
+ Object.assign(v,calc({...o,...v}));const logs=[['Отправка',o['№'],`${c}, ТТН ${t}`]];if(d)logs.push(['Доставка',o['№'],'Оплачена вами при отправке',-d,'Банк']);
+ try{await act({data:wr(o,v),upd:[[o,v]],logs,msg:'Заказ '+o['№']+' отправлен'})}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function advHtml(){const L=advL();
  return back+sumc('Ожидается аванс',money(L.reduce((s,o)=>s+num(o['Аванс']),0)),'по заказам: '+L.length)+`<div class="hint">Клиент заплатил аванс? Нажмите «Аванс получен». Сумму можно изменить, Выкуп пересчитается.</div>`+
  (L.map(o=>`<div class="card"><div class="row"><b>№ ${esc(o['№'])}</b><span class="chip">${esc(o['Канал'])}</span></div><div class="big">${esc(o['ФИО'])}</div><div class="mu">Телефон ${esc(o['Телефон'])} · сумма заказа ${money(total(o))}</div><input id="a${o._row}" type="number" value="${num(o['Аванс'])}"><button class="btn" onclick="gotAdv(${o._row})">💰 Аванс получен</button></div>`).join('')||'<div class="card">Все авансы получены</div>')}
-async function gotAdv(row){const o=S.orders.find(x=>x._row==row),a=num($('#a'+row).value);if(!(a>0))return alert('Впишите сумму аванса');if(!confirm(`Получили аванс ${money(a)} по заказу ${o['№']}?`))return;
- const vy=Math.max(total(o)-a,0),re=Math.round((num(o['Реал'])+a)*100)/100;
- try{await g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[{range:`Заказы!Q${row}:S${row}`,values:[[a,'Да',vy]]},{range:'Заказы!X'+row,values:[[re]]}]})});
-  Object.assign(o,{'Аванс':a,'Аванс получен':'Да','Выкуп':vy,'Реал':re});await addLog('Аванс',o['№'],'Аванс получен',a,'Банк');render();toast('Аванс записан')}catch(e){alert('Не удалось сохранить: '+e.message)}}
+async function gotAdv(row){const o=S.orders.find(x=>x._row==row),a=num($('#a'+row).value);if(!(a>0))return alert('Впишите сумму аванса');
+ const v={'Аванс':a,'Аванс получен':'Да','Реал':rnd(num(o['Реал'])+a),...calc({...o,'Аванс':a})};
+ try{await act({data:wr(o,v),upd:[[o,v]],logs:[['Аванс',o['№'],'Аванс получен',a,'Банк']],msg:'Аванс записан: заказ '+o['№']})}catch(e){alert('Не удалось сохранить: '+e.message)}}
 async function buy(row,q,undo){const i=S.items.find(x=>x._row==row),o=S.orders.find(x=>x['№']==i['№ заказа']),amt=q*num(i['Стоимость закупки']),nb=num(i['Закуплено шт'])+q;
  const all=itemsOf(o).every(x=>(x===i?nb:num(x['Закуплено шт']))>=(num(x['Количество'])||1)),stt=all?'Закуплен':(o['Статус']=='Закуплен'?'Новый':o['Статус']),re=Math.round((num(o['Реал'])-amt)*100)/100;
  try{await g('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[{range:'Товары!I'+row,values:[[nb]]},{range:'Заказы!X'+o._row,values:[[re]]},{range:'Заказы!Y'+o._row,values:[[stt]]}]})});
@@ -205,11 +230,11 @@ async function buy(row,q,undo){const i=S.items.find(x=>x._row==row),o=S.orders.f
 const EK=['Название','Код','Размер','Цвет','Количество','Цена за шт','Стоимость закупки'];
 function editItem(row){const i=S.items.find(x=>x._row==row),d=document.createElement('div');d.className='full';d.id='ed';
  d.innerHTML=`<button class="btn sec" onclick="this.parentNode.remove()">← Назад</button><h2>Изменить товар</h2><div class="hint">Если меняете модель, укажите новую цену и закупку.</div><div class="card">`+EK.map((k,n)=>`<label class="mu">${k}</label><input id="f${n}" value="${esc(i[k])}">`).join('')+`<button class="btn" onclick="saveItem(${row})">Сохранить</button></div>`;document.body.append(d)}
-async function saveItem(row){const i=S.items.find(x=>x._row==row),r=EK.map((k,n)=>document.getElementById('f'+n).value.trim()),was=EK.map(k=>String(i[k]));
- if(r[1]!=was[1]&&r[5]==was[5]&&r[6]==was[6]&&!confirm('Вы изменили модель, но цена и закупка прежние. Оставить так?'))return;
- const v=r.map((x,n)=>n>3?num(x):x);if(!v[4])v[4]=1;
- try{await put('Товары!B'+row+':H'+row,[v]);EK.forEach((k,n)=>i[k]=v[n]);
-  await addLog('Изменение заказа',i['№ заказа'],'Товар изменён: '+EK.map((k,n)=>was[n]!=String(v[n])?`${k}: ${was[n]} → ${v[n]}`:'').filter(Boolean).join('; '));$('#ed').remove();render();toast('Сохранено')}catch(e){alert('Не удалось сохранить: '+e.message)}}
-function toast(t,undo){const d=document.createElement('div');d.className='toast';d.innerHTML=esc(t)+(undo?' <button onclick="this.parentNode.remove();window._u()">Отменить</button>':'');if(undo)window._u=undo;document.body.append(d);setTimeout(()=>d.remove(),7000)}
+async function saveItem(row){const i=S.items.find(x=>x._row==row),o=S.orders.find(x=>x['№']==i['№ заказа']),r=EK.map((k,n)=>document.getElementById('f'+n).value.trim());
+ const nv={};EK.forEach((k,n)=>nv[k]=n>3?num(r[n]):r[n]);if(!nv['Количество'])nv['Количество']=1;
+ const ch=EK.filter(k=>String(i[k])!=String(nv[k]));if(!ch.length)return $('#ed').remove();
+ const vo=calc(o,itemsOf(o).map(x=>x===i?{...i,...nv}:x));
+ try{await act({data:wi(i,nv).concat(wr(o,vo)),upd:[[i,nv],[o,vo]],logs:[['Изменение заказа',o['№'],'Товар изменён: '+ch.map(k=>`${k}: ${i[k]} → ${nv[k]}`).join('; ')]],msg:'Товар изменён'});$('#ed').remove()}catch(e){alert('Не удалось сохранить: '+e.message)}}
+function toast(t,undo){document.querySelectorAll('.toast').forEach(x=>x.remove());const d=document.createElement('div');d.className='toast';d.innerHTML=esc(t)+(undo?' <button>Отменить</button>':'');if(undo)d.querySelector('button').onclick=()=>{d.remove();undo()};document.body.append(d);setTimeout(()=>d.remove(),8000)}
 window.addEventListener('load',()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');render()});
 </script></body></html>
