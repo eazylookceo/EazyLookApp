@@ -155,7 +155,7 @@ function render(){
  if(!tok)return a.innerHTML=`<div class="card"><h3>Вход</h3><div class="hint">Нажмите кнопку и выберите рабочий аккаунт Google.</div>
   <button class="btn" onclick="start()">${localStorage.em?'Продолжить как '+esc(localStorage.em):'Войти через Google'}</button><div id="err"></div></div>`;
  if(S.tab=='orders')return a.innerHTML=ordersHtml();
- if(S.tab=='act')return a.innerHTML=({buy:buyHtml,ship:shipHtml,adv:advHtml,chk:chkHtml,pick:pickHtml,ref:refHtml,ret:retHtml,bal:balHtml}[S.sub]||actHtml)();
+ if(S.tab=='act')return a.innerHTML=({buy:buyHtml,ship:shipHtml,adv:advHtml,chk:chkHtml,pick:pickHtml,ref:refHtml,ret:retHtml,bal:balHtml,com:comHtml,stk:stkHtml}[S.sub]||actHtml)();
  a.innerHTML=`<div class="hint">Журнал: что, когда и по какому заказу происходило.</div>`+expHtml()+S.log.slice(-100).reverse().map(e=>`<div class="card"><div class="row"><b>${esc(e['Тип'])}</b><span>${fdt(e['Дата'])}</span></div>${e['№ заказа']?'Заказ '+esc(e['№ заказа'])+' · ':''}${esc(e['Описание'])}${e['Сумма']?' · '+money(e['Сумма']):''}${e['Счёт']?' · '+esc(e['Счёт']):''}${e['Остаток после']!==''&&e['Остаток после']!=null?' → остаток '+money(e['Остаток после']):''}</div>`).join('')||'<div class="card">Пока пусто</div>'}
 function ordersHtml(){
  let L=S.orders.filter(o=>o['№']);const q=S.q.toLowerCase(),m=Date.now()-30*864e5;
@@ -199,16 +199,16 @@ const IC={'Закупка товара':'🛒','Отправка заказов'
 const sup=c=>S.sup.find(s=>String(s['Наш номер'])==String(c).split('/')[0])||{};
 const toBuy=()=>S.items.map(i=>({i,o:S.orders.find(o=>o['№']==i['№ заказа'])})).filter(x=>x.o&&x.o['Статус']=='Новый'&&num(x.i['Закуплено шт'])<(num(x.i['Количество'])||1));
 const cl=v=>String(v??'').replace(/\.0+$/,'');
-const CAR=['Нова Пошта','Meest','Розетка','Укрпошта'],SUB={'Закупка товара':'buy','Отправка заказов':'ship','Получение аванса':'adv','Выдача чеков':'chk','Возврат посылок':'pick','Возврат средств':'ref','Возврат заказа':'ret','Изменение баланса':'bal'};
+const CAR=['Нова Пошта','Meest','Розетка','Укрпошта'],SUB={'Закупка товара':'buy','Отправка заказов':'ship','Получение аванса':'adv','Выдача чеков':'chk','Возврат посылок':'pick','Возврат средств':'ref','Возврат заказа':'ret','Изменение баланса':'bal','Возврат комиссии':'com','Сдача товара':'stk'};
 const advL=()=>S.orders.filter(o=>num(o['Аванс'])>0&&o['Аванс получен']!='Да'&&!['Отменен','Закрыт'].includes(o['Статус']));
 const back=`<button class="btn sec" onclick="S.sub='';render()">← Все действия</button>`;
 const sumc=(a,b,c)=>`<div class="card sum"><div class="mu">${a}</div><div class="big">${b}</div><div class="mu">${c}</div></div>`;
-function actHtml(){const cnt={buy:toBuy().length,ship:S.orders.filter(o=>o['Статус']=='Закуплен').length,adv:advL().length,chk:chkL().length,pick:pickL().length,ref:refL().length,ret:retL().length};
+function actHtml(){const cnt={buy:toBuy().length,ship:S.orders.filter(o=>o['Статус']=='Закуплен').length,adv:advL().length,chk:chkL().length,pick:pickL().length,ref:refL().length,ret:retL().length,com:comL().length,stk:stkL().length};
  return `<div class="hint">Выберите, что хотите сделать. Цифра на плитке показывает, сколько дел ждёт вас.</div><div class="grid">`+ACTIONS.map(n=>{const k=SUB[n];return `<div class="tile ${k?'':'dim'}" onclick="${k?`S.sub='${k}';render()`:"toast('Появится в следующей версии')"}"><div class="ic">${IC[n]}</div><b>${n}</b>${k&&cnt[k]?`<span class="bdg">${cnt[k]}</span>`:''}${k?'':'<small>скоро</small>'}</div>`}).join('')+`</div>`}
 function buyHtml(){const G={};let tq=0,tm=0,np=0;
  toBuy().forEach(x=>{const s=sup(x.i['Код']),k=s['Улица']||'Улица не указана',q=(num(x.i['Количество'])||1)-num(x.i['Закуплено шт']);tq+=q;tm+=q*num(x.i['Стоимость закупки']);np++;(G[k]=G[k]||[]).push({...x,s,q})});
  const ks=Object.keys(G).sort();
- return back+sumc('Нужно купить',money(tm),`${tq} шт · ${np} позиций · улиц: ${ks.length}`)+
+ return back+sumc('Нужно купить',money(tm),`${tq} шт · ${np} позиций · улиц: ${ks.length}`)+aheadHtml()+
  (ks.map(k=>{const a=G[k];return `<h3 class="sech">📍 ${esc(k)} <span class="mu">· ${a.reduce((n,x)=>n+x.q,0)} шт · ${money(a.reduce((n,x)=>n+x.q*num(x.i['Стоимость закупки']),0))}</span></h3>`+
   a.sort((x,y)=>num(x.s['Контейнер'])-num(y.s['Контейнер'])||String(x.i['Код']).localeCompare(y.i['Код'])).map(({i,o,s,q})=>`<div class="card">
   <div class="row"><span class="art">${esc(i['Код'])}</span><span class="qty">× ${q} шт</span></div>
@@ -216,7 +216,7 @@ function buyHtml(){const G={};let tq=0,tm=0,np=0;
   <div class="row"><span class="cost">${money(i['Стоимость закупки'])} <small>за шт</small></span><span class="mu">итого ${money(q*num(i['Стоимость закупки']))}</span></div>
   <div class="cont">${esc(s['Поставщик']||'Поставщик не найден (№ '+String(i['Код']).split('/')[0]+')')} ${esc(cl(s['Контейнер']))}</div>${i['Название']?`<div class="mu">${esc(i['Название'])}</div>`:''}
   <div class="mu">Заказ ${esc(o['№'])} · ${esc(o['Канал'])} · ${esc(o['ФИО'])}</div>
-  <button class="btn" onclick="buy(${i._row},${q})">✓ Куплено</button><button class="btn sec" onclick="editItem(${i._row})">✎ Изменить</button></div>`).join('')}).join('')||'<div class="card">Всё закуплено 🎉</div>')}
+  ${stBtn(i,q)}<button class="btn" onclick="buy(${i._row},${q})">✓ Куплено</button><button class="btn sec" onclick="editItem(${i._row})">✎ Изменить</button></div>`).join('')}).join('')||'<div class="card">Всё закуплено 🎉</div>')}
 function shipHtml(){const L=S.orders.filter(o=>o['Статус']=='Закуплен');
  return back+sumc('К отправке',L.length+' заказов','на сумму '+money(L.reduce((s,o)=>s+total(o),0)))+`<div class="hint">Выберите службу доставки и впишите ТТН. Если доставку оплатили вы, впишите сумму.</div>`+
  (L.map(o=>`<div class="card"><div class="row"><b>№ ${esc(o['№'])}</b><span class="chip">${esc(o['Канал'])}</span></div><div class="big">${esc(o['ФИО'])}</div>${itemsOf(o).map(i=>`<div class="it"><b>${esc(i['Код'])}</b> · ${esc(i['Цвет'])} · р. ${esc(i['Размер'])} × ${esc(i['Количество'])}${i['Название']?' · '+esc(i['Название']):''}</div>`).join('')}
@@ -322,6 +322,32 @@ async function autoPay(){if(!live())return;const td=iso(new Date()),G={};
 function expHtml(){const G={};payable().forEach(o=>{const k=iso(payDate(o))+'|'+grp(o);(G[k]=G[k]||[]).push(o)});const ks=Object.keys(G).sort();
  return ks.length?`<div class="card"><b>Ожидаются выплаты</b><div class="mu">Они зачислятся в Банк сами в день выплаты. Сверьте сумму с поступлением на счёт.</div>`+ks.map(k=>{const[d,gp]=k.split('|'),L=G[k];return `<div class="it"><b>${gp}</b> · ${fdate(d)} · ${money(L.reduce((s,o)=>s+num(o['Выплата']),0))} · заказов: ${L.length}</div>`}).join('')+`</div>`:''}
 async function setLive(){const v=iso(new Date()),r=S.cfg.find(x=>x['Ключ']=='live_from');try{if(r){await put('Настройки!B'+r._row,[[v]]);r['Значение']=v}else{await app('Настройки!A1',[['live_from',v]]);S.cfg.push({'Ключ':'live_from','Значение':v,_row:S.cfg.length+2})}render();toast('Учёт начат с '+v)}catch(e){alert('Не удалось сохранить: '+e.message)}}
+const stkL=()=>S.stock.filter(s=>s['Код']&&num(s['Количество'])>0);
+const stkOf=i=>stkL().filter(s=>s['Код']==i['Код']&&String(s['Размер'])==String(i['Размер'])&&String(s['Цвет']).toLowerCase()==String(i['Цвет']).toLowerCase());
+const stBtn=(i,q)=>{const n=stkOf(i).reduce((s,x)=>s+num(x['Количество']),0);return n?`<div class="hint">На складе есть: ${n} шт</div><button class="btn sec" onclick="fromStock(${i._row},${q})">📦 Взять со склада</button>`:''};
+async function fromStock(row,q){const i=S.items.find(x=>x._row==row),o=S.orders.find(x=>x['№']==i['№ заказа']);let need=q,cost=0;const data=[],upd=[];
+ for(const s of stkOf(i)){if(need<=0)break;const t=Math.min(need,num(s['Количество'])),nq=num(s['Количество'])-t;need-=t;cost+=t*num(s['Цена закупки']);data.push({r:'Склад!E'+s._row,v:nq,p:s['Количество']});upd.push([s,{'Количество':nq}])}
+ const t=q-need,nb=num(i['Закуплено шт'])+t,all=itemsOf(o).every(x=>(x===i?nb:num(x['Закуплено шт']))>=(num(x['Количество'])||1)),vi={'Закуплено шт':nb},vo={'Реал':rnd(num(o['Реал'])-cost),'Статус':all?'Закуплен':o['Статус']};
+ data.push(...wi(i,vi),...wr(o,vo));upd.push([i,vi],[o,vo]);
+ try{await act({data,upd,logs:[['Со склада в заказ',o['№'],`Взято со склада: ${t} шт · ${i['Код']} · ${i['Цвет']} · р. ${i['Размер']}`,-cost,'Склад']],msg:'Взято со склада: '+t+' шт'})}catch(e){alert('Не удалось сохранить: '+e.message)}}
+const aheadHtml=()=>`<div class="card"><b>Купил про запас</b><div class="mu">Товар без заказа: попадёт на склад, деньги спишутся из Банка.</div><input id="ak" placeholder="Артикул (например 18/1276)"><input id="an" placeholder="Название"><input id="as" placeholder="Размер"><input id="ac" placeholder="Цвет"><input id="aq" type="number" placeholder="Количество"><input id="ap" type="number" placeholder="Цена закупки за шт"><button class="btn sec" onclick="ahead()">+ На склад</button></div>`;
+async function ahead(){const r=['ak','an','as','ac'].map(x=>$('#'+x).value.trim()),q=num($('#aq').value),c=num($('#ap').value);if(!r[0]||!q||!c)return alert('Впишите артикул, количество и цену закупки');
+ const row=[r[0],r[1],r[2],r[3],q,c,''],d=`${r[0]} · ${r[3]} · р. ${r[2]} × ${q}`;
+ try{await act({data:[],upd:[],logs:[['Закупка впрок','',d,-q*c,'Банк'],['Закупка впрок','','На склад: '+d,q*c,'Склад']],msg:'Добавлено на склад',add:[{sheet:'Склад',rows:[row],objs:[Object.fromEntries(SH['Склад'].map((k,n)=>[k,row[n]]))]}]})}catch(e){alert('Не удалось сохранить: '+e.message)}}
+function stkHtml(){const L=stkL(),tot=L.reduce((s,x)=>s+num(x['Количество'])*num(x['Цена закупки']),0);
+ return back+sumc('Товар на складе',money(tot),`${L.reduce((s,x)=>s+num(x['Количество']),0)} шт · позиций: ${L.length}`)+`<div class="hint">Сдали товар поставщику? Укажите, сколько штук и сколько денег получили (по умолчанию по цене закупки), и нажмите «Сдал поставщику».</div>`+
+ (L.map(s=>{const sp=sup(s['Код']);return `<div class="card"><div class="row"><span class="art">${esc(s['Код'])}</span><span class="qty">× ${esc(s['Количество'])} шт</span></div><div class="big">${esc(s['Цвет'])} · р. ${esc(s['Размер'])}</div><div class="cost">${money(s['Цена закупки'])} <small>за шт</small></div><div class="cont">${esc(sp['Поставщик']||'Поставщик не найден')} ${esc(cl(sp['Контейнер']))}</div><div class="mu">${esc(sp['Улица']||'')}${s['Название']?' · '+esc(s['Название']):''}${s['Из заказа']?' · из заказа '+esc(s['Из заказа']):''}</div>
+  <label class="mu">Сколько штук сдали</label><input id="sq${s._row}" type="number" value="${num(s['Количество'])}"><label class="mu">Сколько денег получили</label><input id="sa${s._row}" type="number" value="${num(s['Количество'])*num(s['Цена закупки'])}"><button class="btn" onclick="stkRet(${s._row})">🏭 Сдал поставщику</button></div>`}).join('')||'<div class="card">На складе пусто</div>')}
+async function stkRet(row){const s=S.stock.find(x=>x._row==row),q=Math.min(num($('#sq'+row).value),num(s['Количество'])),a=num($('#sa'+row).value);if(!(q>0))return alert('Впишите количество');
+ const nq=num(s['Количество'])-q,d=`${s['Код']} · ${s['Цвет']} · р. ${s['Размер']} × ${q}`;
+ try{await act({data:[{r:'Склад!E'+row,v:nq,p:s['Количество']}],upd:[[s,{'Количество':nq}]],logs:[['Сдача товара',s['Из заказа'],d,a,'Банк'],['Сдача товара',s['Из заказа'],d,-q*num(s['Цена закупки']),'Склад']],msg:'Сдано поставщику: '+q+' шт'})}catch(e){alert('Не удалось сохранить: '+e.message)}}
+const comL=()=>S.orders.filter(o=>['Пром','Шафа','Эпицентр'].includes(o['Канал'])&&o['Статус']=='Возврат'&&o['Комиссия сайта возвращена']!='Да'&&num(o['Комиссия сайта'])>0);
+function comHtml(){const L=comL();return back+sumc('Комиссии к возврату',money(L.reduce((s,o)=>s+num(o['Комиссия сайта']),0)),'по заказам: '+L.length)+`<div class="hint">Для Прома и Эпицентра нужно написать в поддержку, для Шафы нажать кнопку на сайте. Когда комиссия вернулась на баланс, нажмите «Комиссия вернулась».</div>`+
+ (L.map(o=>`<div class="card">${hd(o)}<div class="mu">${o['Состояние посылки']=='Возврат забран'?'посылку забрали ✓':'посылку ещё не забрали'} · ${num(o['Возвращено клиенту'])?'деньги клиенту возвращены ✓':'деньги клиенту ещё не возвращены'}</div>
+  <label class="mu">Сумма комиссии</label><input id="cs${o._row}" type="number" value="${num(o['Комиссия сайта'])}"><label class="mu"><input type="checkbox" id="cr${o._row}" style="width:auto" ${inLive(o)?'checked':''}> Прибавить к Реалу заказа</label><br><button class="btn" onclick="comBack(${o._row})">🏷️ Комиссия вернулась</button></div>`).join('')||'<div class="card">Нет комиссий к возврату</div>')}
+async function comBack(row){const o=S.orders.find(x=>x._row==row),c=num($('#cs'+row).value),rs=$('#cr'+row).checked;if(!(c>0))return alert('Впишите сумму');
+ const v={'Комиссия сайта возвращена':'Да','Реал':rnd(num(o['Реал'])+(rs?c:0))};
+ try{await act({data:wr(o,v),upd:[[o,v]],logs:[['Возврат комиссии',o['№'],'Комиссия площадки вернулась на баланс',c,wAcc(o)]],msg:'Комиссия возвращена: заказ '+o['№']})}catch(e){alert('Не удалось сохранить: '+e.message)}}
 window.addEventListener('load',()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');render();
  const t=JSON.parse(localStorage.tk||'null');
  if(SID&&ME&&t&&t.exp>Date.now()){tok=t.tok;start()}
