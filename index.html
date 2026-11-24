@@ -45,7 +45,7 @@ const CLIENT_ID='453855640121-0o20r40ti8vjgtpkmkdhdomdrhttmo1i.apps.googleuserco
 const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
 let ares=null;
 const SH={
-'Заказы':['№','Канал','Тип оплаты','Дата','ФИО','Телефон','Перевозчик','ТТН','Состояние посылки','Дата отправки','Дата получения','От ФОП','Условие доставки','Стоимость доставки','Возвратная ТТН','Стоимость возвратной доставки','Аванс','Аванс получен','Выкуп','Комиссия сайта','Комиссия банка','Выплата','Профит','Реал','Статус','Чек выдан','Возвращено клиенту','Комиссия сайта возвращена','Комиссия сайта списана','Выплата зачислена'],
+'Заказы':['№','Канал','Тип оплаты','Дата','ФИО','Телефон','Перевозчик','ТТН','Состояние посылки','Дата отправки','Дата получения','От ФОП','Условие доставки','Стоимость доставки','Возвратная ТТН','Стоимость возвратной доставки','Аванс','Аванс получен','Выкуп','Комиссия сайта','Комиссия банка','Выплата','Профит','Реал','Статус','Чек выдан','Возвращено клиенту','Комиссия сайта возвращена','Комиссия сайта списана','Выплата зачислена','Вернуть деньги клиенту'],
 'Товары':['№ заказа','Название','Код','Размер','Цвет','Количество','Цена за шт','Стоимость закупки','Закуплено шт'],
 'Журнал':['ID','Дата','Кто','Тип','№ заказа','Счёт','Сумма','Остаток после','Описание','Отменена'],
 'Склад':['Код','Название','Размер','Цвет','Количество','Цена закупки','Из заказа'],
@@ -139,6 +139,7 @@ function can(o){ // что можно делать с заказом в его �
  A('Оформить возврат заказа',s=='Выполнен','Возврат возможен только у выполненных заказов (14 дней)');
  const bad=['Отправлен','Выполнен','Возврат','Отказ','Закрыт','Отменен'].includes(s)?'Посылка уже в пути или заказ завершён':adv?'Получен аванс: сначала верните деньги клиенту':'';
  A('Заказ выполнен (посылку забрали)',s=='Отправлен','Заказ ещё не отправлен или уже завершён',`setSt(${o._row},'Выполнен')`);A('Отказ от посылки',s=='Отправлен','Заказ ещё не отправлен или уже завершён',`setSt(${o._row},'Отказ')`);
+ A('Нужно вернуть деньги клиенту',['Возврат','Отказ'].includes(s)&&o['Вернуть деньги клиенту']!='Да'&&!num(o['Возвращено клиенту']),'Деньги уже возвращены или возврата нет',`needRef(${o._row})`);
  A('Отменить заказ',!bad,bad);
  return r}
 
@@ -249,7 +250,7 @@ async function saveItem(row){const i=S.items.find(x=>x._row==row),o=S.orders.fin
  try{await act({data:wi(i,nv).concat(wr(o,vo)),upd:[[i,nv],[o,vo]],logs:[['Изменение заказа',o['№'],'Товар изменён: '+ch.map(k=>`${k}: ${i[k]} → ${nv[k]}`).join('; ')]],msg:'Товар изменён'});$('#ed').remove()}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function toast(t,undo){document.querySelectorAll('.toast').forEach(x=>x.remove());const d=document.createElement('div');d.className='toast';d.innerHTML=esc(t)+(undo?' <button>Отменить</button>':'');if(undo)d.querySelector('button').onclick=()=>{d.remove();undo()};document.body.append(d);setTimeout(()=>d.remove(),8000)}
 const pickL=()=>S.orders.filter(o=>['Отказ','Возврат'].includes(o['Статус'])&&o['Состояние посылки']!='Возврат забран');
-const refL=()=>S.orders.filter(o=>o['Статус']=='Возврат'&&!num(o['Возвращено клиенту']));
+const refL=()=>S.orders.filter(o=>o['Вернуть деньги клиенту']=='Да'&&!num(o['Возвращено клиенту']));
 const d0=o=>o['Дата получения']||o['Дата отправки']||o['Дата'],left=o=>(o['Дата получения']?14:21)-Math.floor((Date.now()-Date.parse(d0(o)))/864e5);
 const retL=()=>S.orders.filter(o=>o['Статус']=='Выполнен'&&left(o)>=0);
 const itl=o=>itemsOf(o).map(i=>`<div class="it"><b>${esc(i['Код'])}</b> · ${esc(i['Цвет'])} · р. ${esc(i['Размер'])} × ${esc(i['Количество'])}${nameOf(i)?' · '+esc(nameOf(i)):''}</div>`).join('');
@@ -261,14 +262,15 @@ function pickHtml(){const L=pickL();return back+sumc('Посылки, котор
   <button class="btn" onclick="pick(${o._row})">📥 Забрал посылку</button></div>`}).join('')||'<div class="card">Нет посылок к получению</div>')}
 async function pick(row){const o=S.orders.find(x=>x._row==row),d=num($('#pd'+row).value),rs=$('#pr'+row).checked,its=itemsOf(o).filter(i=>num(i['Закуплено шт'])>0),val=its.reduce((s,i)=>s+num(i['Закуплено шт'])*num(i['Стоимость закупки']),0);
  const v={'Состояние посылки':'Возврат забран','Стоимость возвратной доставки':d||o['Стоимость возвратной доставки'],'Реал':rnd(num(o['Реал'])-d+(rs?val:0))};
+ if(o['Статус']=='Возврат')v['Вернуть деньги клиенту']='Да';
  const rows=its.map(i=>[i['Код'],nameOf(i),i['Размер'],i['Цвет'],num(i['Закуплено шт']),num(i['Стоимость закупки']),o['№']]),logs=[['Возврат посылки',o['№'],'Посылка забрана, товар на складе']];
  if(d)logs.push(['Доставка',o['№'],'Оплачена вами за возврат',-d,'Банк']);if(rs&&val)logs.push(['Склад',o['№'],'Стоимость товара возвращена в Реал',val,'Склад']);
  try{await act({data:wr(o,v),upd:[[o,v]],logs,msg:'Посылка по заказу '+o['№']+' забрана',add:rows.length?[{sheet:'Склад',rows,objs:rows.map(r=>Object.fromEntries(SH['Склад'].map((k,n)=>[k,r[n]])))}]:[]})}catch(e){alert('Не удалось сохранить: '+e.message)}}
-function refHtml(){const L=refL();return back+sumc('Нужно вернуть клиентам',money(L.reduce((s,o)=>s+total(o),0)),'по заказам: '+L.length)+`<div class="hint">Сумма предлагается полная, её можно изменить (например, оставить аванс). По заказам Прома и Шафы комиссия банка вернётся сама.</div>`+
+function refHtml(){const L=refL();return back+sumc('Нужно вернуть клиентам',money(L.reduce((s,o)=>s+total(o),0)),'по заказам: '+L.length)+`<div class="hint">Сюда попадают заказы-возвраты, которые вы уже забрали с почты, а деньги клиенту ещё не вернули. Сумма предлагается полная, её можно изменить (например, оставить аванс). По заказам Прома и Шафы комиссия банка вернётся сама.</div>`+
  (L.map(o=>`<div class="card">${hd(o)}<div class="mu">Телефон ${esc(o['Телефон'])} · ${o['Состояние посылки']=='Возврат забран'?'посылка у вас ✓':'посылка ещё не у вас'}</div>${itl(o)}
   <label class="mu">Сумма возврата клиенту</label><input id="rf${o._row}" type="number" value="${total(o)}"><button class="btn" onclick="refund(${o._row})">💸 Деньги возвращены</button></div>`).join('')||'<div class="card">Возвратов средств нет</div>')}
 async function refund(row){const o=S.orders.find(x=>x._row==row),a=num($('#rf'+row).value);if(!(a>0))return alert('Впишите сумму');
- const bk=['Пром','Шафа'].includes(o['Канал'])?num(o['Комиссия банка']):0,v={'Возвращено клиенту':a,'Реал':rnd(num(o['Реал'])-a+bk)},logs=[['Возврат средств',o['№'],'Деньги возвращены клиенту',-a,'Банк']];
+ const bk=['Пром','Шафа'].includes(o['Канал'])?num(o['Комиссия банка']):0,v={'Вернуть деньги клиенту':'','Возвращено клиенту':a,'Реал':rnd(num(o['Реал'])-a+bk)},logs=[['Возврат средств',o['№'],'Деньги возвращены клиенту',-a,'Банк']];
  if(bk)logs.push(['Возврат комиссии банка',o['№'],'Комиссия банка возвращена',bk,'Банк']);
  try{await act({data:wr(o,v),upd:[[o,v]],logs,msg:'Возврат клиенту записан: заказ '+o['№']})}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function retHtml(){const L=retL();return back+sumc('Можно оформить возврат',L.length+' заказов','выполненные заказы, у которых не прошло 14 дней')+`<div class="hint">Клиент решил вернуть товар? Нажмите «Оформить возврат». Возвратную ТТН можно вписать сейчас или позже.</div>`+
@@ -358,6 +360,7 @@ const psSel=o=>{const s=psSelect(o);return s?`<div class="card"><b>Состоя�
 async function setPs(row,val){if(!val)return;const o=S.orders.find(x=>x._row==row),v={'Состояние посылки':val};try{await act({data:wr(o,v),upd:[[o,v]],logs:[['Состояние посылки',o['№'],val]],msg:'Состояние: '+val});if($('#ord')){$('#ord').remove();openOrder(o['№'])}}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function aheadForm(){const d=document.createElement('div');d.className='full';d.id='ah';d.innerHTML=`<button class="btn sec" onclick="this.parentNode.remove()">← Назад</button><h2>Купил про запас</h2><div class="hint">Товар без заказа попадёт на склад, деньги спишутся из Банка.</div><div class="card"><input id="ak" placeholder="Артикул (например 18/1276)"><input id="an" placeholder="Название"><input id="as" placeholder="Размер"><input id="ac" placeholder="Цвет"><input id="aq" type="number" placeholder="Количество"><input id="ap" type="number" placeholder="Цена закупки за шт"><button class="btn" onclick="ahead()">+ На склад</button></div>`;document.body.append(d)}
 async function genTtn(row){const o=S.orders.find(x=>x._row==row);try{await app('Очередь!A1',[[Date.now(),new Date().toISOString(),'ТТН Prom',o['№'],'ожидает','']]);await addLog('Запрос ТТН',o['№'],'Запрошена генерация ТТН на Проме');toast('Запрос создан. ТТН появится в заказе, когда будет подключена связь с Промом (следующий этап).')}catch(e){alert('Не удалось сохранить: '+e.message)}}
+async function needRef(row){const o=S.orders.find(x=>x._row==row),v={'Вернуть деньги клиенту':'Да'};try{await act({data:wr(o,v),upd:[[o,v]],logs:[['Возврат средств',o['№'],'Отмечено: нужно вернуть деньги клиенту']],msg:'Заказ '+o['№']+' добавлен в «Возврат средств»'});if($('#ord')){$('#ord').remove();openOrder(o['№'])}}catch(e){alert('Не удалось сохранить: '+e.message)}}
 async function fixBadTtn(){for(const o of S.orders.filter(o=>o['Возвратная ТТН']&&!ttnOk(o['Возвратная ТТН']))){const bad=o['Возвратная ТТН'];await bu(wr(o,{'Возвратная ТТН':''}).map(x=>({range:x.r,values:[[x.v]]})));o['Возвратная ТТН']='';await addLog('Комментарий',o['№'],'Заметка из старой таблицы: '+bad)}}
 window.addEventListener('load',()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');render();
  const t=JSON.parse(localStorage.tk||'null');
