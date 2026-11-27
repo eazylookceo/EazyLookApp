@@ -170,7 +170,7 @@ function ordersHtml(){
  <div>${[['all','За всё время'],['mon','За месяц'],['act','Активные']].map(([k,n])=>`<button class="btn ${S.flt==k?'':'sec'}" onclick="S.flt='${k}';render()">${n}</button>`).join('')}</div>`+
  `<div>${['','Пром','Эпицентр','Шафа','Наложка'].map(c=>`<button class="btn sm ${S.ch==c?'':'sec'}" onclick="S.ch='${c}';render()">${c||'Все каналы'}</button>`).join('')}</div><div class="mu" style="margin:6px 4px">Заказов: ${L.length} · на сумму ${money(L.reduce((s,o)=>s+total(o),0))}</div>`+(L.map(o=>`<div class="card" style="border-left:6px solid ${ST[o['Статус']]||'#888'}" onclick="openOrder('${esc(o['№'])}')"><div class="row"><b>№ ${esc(o['№'])}</b><span>${rcp(o)}<span class="st" style="background:${ST[o['Статус']]||'#888'}">${esc(o['Статус']||'—')}</span></span></div>
  <div><span class="chip">${esc(o['Канал'])}</span><span class="chip">${esc(o['Тип оплаты']||'тип оплаты не указан')}</span></div>
- <div class="row"><span>${esc(o['ФИО'])}</span><b>${money(total(o))}</b></div>${ttnOk(o['ТТН'])?`<div class="mu">ТТН ${esc(o['ТТН'])}</div>`:''}${ttnOk(o['Возвратная ТТН'])?`<div class="mu">↩ Возвратная ТТН ${esc(o['Возвратная ТТН'])}</div>`:''}${itemsOf(o).map(i=>`<div class="it">${esc(i['Код'])} · ${esc(i['Размер'])} · ${esc(i['Цвет'])} × ${esc(i['Количество']||1)}${nameOf(i)?' · '+esc(nameOf(i)):''}</div>`).join('')}</div>`).join('')||'<div class="card">Заказов не найдено</div>')}
+ <div class="row"><span>${esc(o['ФИО'])}</span><b>${money(total(o))}</b></div>${ttnOk(o['ТТН'])?`<div class="mu">ТТН ${esc(o['ТТН'])}</div>`:''}${ttnOk(o['Возвратная ТТН'])?`<div class="mu">↩ Возвратная ТТН ${esc(o['Возвратная ТТН'])}</div>`:''}${o['Статус']=='Выполнен'&&ttnOk(o['Возвратная ТТН'])?'<div class="why">⚠ Клиент создал возврат</div>':''}${itemsOf(o).map(i=>`<div class="it">${esc(i['Код'])} · ${esc(i['Размер'])} · ${esc(i['Цвет'])} × ${esc(i['Количество']||1)}${nameOf(i)?' · '+esc(nameOf(i)):''}</div>`).join('')}</div>`).join('')||'<div class="card">Заказов не найдено</div>')}
 function openOrder(n){
  const o=S.orders.find(x=>x['№']==n);if(!o)return;const d=document.createElement('div');d.className='full';d.id='ord';
  const F=['Канал','Тип оплаты','Дата','ФИО','Телефон','Перевозчик','ТТН','Возвратная ТТН','Состояние посылки','Условие доставки','Стоимость доставки','Аванс','Аванс получен','Выкуп','Комиссия сайта','Комиссия банка','Выплата','Профит','Реал','Чек выдан','Стоимость возвратной доставки','Возвращено клиенту','Комиссия сайта возвращена'];
@@ -189,7 +189,7 @@ function settings(){if(!confirm('Сменить таблицу или имя? В
 function saveCfg(){const m=($('#sid').value||'').match(/\/d\/([\w-]+)/),id=m?m[1]:($('#sid').value||'').trim(),me=$('#me').value.trim();
  if(!id||!me)return alert('Заполните оба поля');SID=localStorage.sid=id;ME=localStorage.me=me;render()}
 async function start(){
- try{if(!tok)await auth();$('#app').innerHTML='<div class="card">Загружаю данные…</div>';await ensure();await fixHdr();await load();try{await fixBadTtn()}catch(e){}try{await autoCharge();await autoPay()}catch(e){}
+ try{if(!tok)await auth();$('#app').innerHTML='<div class="card">Загружаю данные…</div>';await ensure();await fixHdr();await load();try{await fixBadTtn();await autoStatus()}catch(e){}try{await autoCharge();await autoPay()}catch(e){}
   const r=seenRow(),n=news();render();
   if(!r){await setSeen()}else if(n.length)showNews(n);else await setSeen()}
  catch(e){tok=null;render();$('#err').innerHTML=`<div class="hint">Не получилось: ${esc(e.message)}. Проверьте адрес таблицы и доступ аккаунта.</div>`}}
@@ -274,18 +274,22 @@ async function refund(row){const o=S.orders.find(x=>x._row==row),a=num($('#rf'+r
  if(bk)logs.push(['Возврат комиссии банка',o['№'],'Комиссия банка возвращена',bk,'Банк']);
  try{await act({data:wr(o,v),upd:[[o,v]],logs,msg:'Возврат клиенту записан: заказ '+o['№']})}catch(e){alert('Не удалось сохранить: '+e.message)}}
 function retHtml(){const L=retL();return back+sumc('Можно оформить возврат',L.length+' заказов','выполненные заказы, у которых не прошло 14 дней')+`<div class="hint">Клиент решил вернуть товар? Нажмите «Оформить возврат». Возвратную ТТН можно вписать сейчас или позже.</div>`+
- (L.map(o=>`<div class="card">${hd(o)}${itl(o)}<div class="mu">Осталось дней на возврат: ${o['Дата получения']?'':'≈ '}${left(o)}</div><input id="rt${o._row}" placeholder="Возвратная ТТН (можно позже)"><button class="btn" onclick="retOrd(${o._row})">🔁 Оформить возврат</button></div>`).join('')||'<div class="card">Нет заказов, которые можно вернуть</div>')}
+ (L.map(o=>`<div class="card">${hd(o)}${itl(o)}<div class="mu">Осталось дней на возврат: ${o['Дата получения']?'':'≈ '}${left(o)}</div>${ttnOk(o['Возвратная ТТН'])?'<div class="why">⚠ Клиент уже создал ТТН возврата</div>':''}<input id="rt${o._row}" placeholder="Возвратная ТТН (можно позже)" value="${esc(ttnOk(o['Возвратная ТТН'])?o['Возвратная ТТН']:'')}"><button class="btn" onclick="retOrd(${o._row})">🔁 Оформить возврат</button></div>`).join('')||'<div class="card">Нет заказов, которые можно вернуть</div>')}
 async function retOrd(row){const o=S.orders.find(x=>x._row==row),v={'Статус':'Возврат','Состояние посылки':'Возврат едет к вам','Возвратная ТТН':$('#rt'+row).value.trim()};
  try{await act({data:wr(o,v),upd:[[o,v]],logs:[['Возврат заказа',o['№'],'Оформлен возврат'+(v['Возвратная ТТН']?', ТТН '+v['Возвратная ТТН']:'')]],msg:'Возврат оформлен: заказ '+o['№']})}catch(e){alert('Не удалось сохранить: '+e.message)}}
-async function setSt(row,st){const o=S.orders.find(x=>x._row==row),v={'Статус':st},logs=[[st=='Выполнен'?'Заказ выполнен':'Отказ от посылки',o['№'],'Статус изменён вручную']];let re=num(o['Реал']);
- if(st=='Выполнен'){Object.assign(v,{'Состояние посылки':'Забрана','Дата получения':iso(new Date())});
+function stPlan(o,st,auto){const v={'Статус':st},logs=[[st=='Выполнен'?'Заказ выполнен':'Отказ от посылки',o['№'],auto?'Статус изменён автоматически по данным почты':'Статус изменён вручную']];let re=num(o['Реал']);
+ if(st=='Выполнен'){Object.assign(v,{'Состояние посылки':'Забрана','Дата получения':o['Дата получения']||iso(new Date())});
   if(inLive(o)){Object.assign(v,calc(o));const f=feeOf(o),a=wAcc(o);
    if(f&&o['Канал']!='Наложка'){logs.push(['Доставка площадки',o['№'],'Списано за программу доставки',-f,a]);re-=f}
    if(o['Канал']=='Шафа'&&num(v['Комиссия сайта'])){const c=num(v['Комиссия сайта']);logs.push(['Комиссия площадки',o['№'],'Списана комиссия Shafa',-c,a]);re-=c}}}
  else{v['Состояние посылки']='Отказ, посылка едет к вам';
   if(o['Комиссия сайта списана']=='Да'&&inLive(o)){const c=num(o['Комиссия сайта']);v['Комиссия сайта списана']='Нет';logs.push(['Возврат комиссии',o['№'],'Комиссия возвращена при отказе',c,wAcc(o)]);re+=c}}
- v['Реал']=rnd(re);
+ v['Реал']=rnd(re);return{v,logs}}
+async function setSt(row,st){const o=S.orders.find(x=>x._row==row),{v,logs}=stPlan(o,st);
  try{await act({data:wr(o,v),upd:[[o,v]],logs,msg:`Заказ ${o['№']}: ${st}`});if($('#ord')){$('#ord').remove();openOrder(o['№'])}}catch(e){alert('Не удалось сохранить: '+e.message)}}
+async function autoStatus(){let n=0;for(const o of S.orders.filter(o=>o['Статус']=='Отправлен'&&(o['Состояние посылки']=='Забрана'||/^Отказ/.test(o['Состояние посылки'])))){
+ const st=o['Состояние посылки']=='Забрана'?'Выполнен':'Отказ',{v,logs}=stPlan(o,st,true);await bu(wr(o,v).map(x=>({range:x.r,values:[[x.v]]})));Object.assign(o,v);for(const l of logs)await addLog(...l);n++}
+ if(n){render();toast('Автоматически обновлено заказов по данным почты: '+n)}}
 const ACC=['Банк','Баланс Prom','Баланс Shafa','Баланс Epicentr','Склад'];
 const bal=a=>rnd(S.log.filter(e=>e['Счёт']==a&&e['Отменена']!='Да').reduce((s,e)=>s+num(e['Сумма']),0));
 function balHtml(){const t=ACC.reduce((s,a)=>s+bal(a),0),ty=S.bt||'';
